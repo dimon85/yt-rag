@@ -1,0 +1,248 @@
+# yt-rag corpus definition
+#
+# Goal: a polarized corpus. Every tool has both advocates and critics, and
+# claims from different points in time. Without that, contradiction coverage
+# measures nothing.
+#
+# NOTE: channel handles are left as TODO on purpose — current @-handles and
+# channel activity are not guaranteed. Each one is verified by hand before
+# ingest. Channel names are correct; handles may differ.
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# TOOLS — the axis the corpus intersects on
+# ---------------------------------------------------------------------------
+# aliases are critical: transcripts name these tools inconsistently, and
+# without synonyms the search for claims fails during golden-set annotation.
+
+tools:
+  - id: claude-code
+    name: Claude Code
+    aliases: ["claude code", "cc", "anthropic cli", "claude cli", "claude agent"]
+    target_videos: 15
+
+  - id: cursor
+    name: Cursor
+    aliases: ["cursor", "cursor composer", "cursor ide", "composer"]
+    target_videos: 15
+
+  - id: codex
+    name: OpenAI Codex
+    aliases: ["codex", "openai codex", "codex cli"]
+    target_videos: 12
+
+  - id: windsurf
+    name: Windsurf
+    aliases: ["windsurf", "cascade", "codeium"]
+    target_videos: 10
+
+  - id: mcp
+    name: MCP
+    aliases: ["mcp", "model context protocol", "mcp server", "mcp servers"]
+    target_videos: 12
+
+  - id: copilot
+    name: GitHub Copilot
+    aliases: ["copilot", "github copilot", "copilot workspace"]
+    target_videos: 10
+
+# Tools deliberately kept OUT of the corpus — the source of negative questions.
+# Questions about them must return nothing. If the system confidently returns
+# something, that is a false positive — and almost nobody measures it.
+tools_deliberately_absent:
+  - id: jetbrains-ai
+    name: JetBrains AI Assistant
+  - id: amazon-q
+    name: Amazon Q Developer
+  - id: tabnine
+    name: Tabnine
+  - id: continue
+    name: Continue
+
+# ---------------------------------------------------------------------------
+# CHANNELS — the hype ↔ skepticism axis
+# ---------------------------------------------------------------------------
+# Actual split by target_videos: ~33% hype, ~44% practical, ~23% skeptical.
+# There are fewer skeptics by count, but they yield the most counter-claims
+# per unit of text.
+
+channels:
+  # --- Hype pole: high volume, fast reviews, "what shipped this week" ---
+  - name: Matthew Berman
+    handle: "@matthew_berman"
+    channel_id: UCawZsQWqfGSbCI5yjkdVkTA
+    stance: hype
+    note: Reviews everything, many head-to-head videos. Main source of positive claims.
+    target_videos: 10
+
+  - name: David Ondrej
+    handle: "@DavidOndrej"
+    channel_id: UCPGrgwfbkjTIgPoOh2q1BAg
+    stance: hype
+    note: AI agents, building on top of the tools.
+    target_videos: 6
+
+  - name: All About AI
+    handle: "@AllAboutAI"
+    channel_id: UCR9j1jqqB5Rse69wjUnbYwA
+    stance: hype
+    target_videos: 5
+
+  - name: Riley Brown
+    handle: "@rileybrownai"
+    channel_id: UCMcoud_ZW7cfxeIugBflSBw
+    stance: hype
+    note: Vibe coding. Useful as a pole — minimal skepticism.
+    target_videos: 5
+
+  # --- Practical center: tutorials with implementation detail ---
+  - name: Cole Medin
+    handle: "@ColeMedin"
+    channel_id: UCMwVTLZIRRUyyVrkjDpn4pA
+    stance: practical
+    note: Agentic engineering, RAG, MCP. Densest technical claims.
+    target_videos: 10
+
+  - name: IndyDevDan
+    handle: "@indydevdan"
+    channel_id: UC_x36zCEGilGpB1m-V4gmjg
+    stance: practical
+    note: Agentic coding, Claude Code workflows.
+    target_videos: 8
+
+  - name: AI Jason
+    handle: "@AIJasonZ"
+    channel_id: UCrXSVX9a1mj8l0CMLwKgMVw
+    stance: practical
+    target_videos: 6
+
+  - name: Sam Witteveen
+    handle: "@samwitteveenai"
+    channel_id: UC55ODQSvARtgSyc8ThfiepQ
+    stance: practical
+    note: Practical LLM pipelines, less hype than average.
+    target_videos: 6
+
+  # --- Skeptical pole: where the counter-claims come from ---
+  - name: Theo - t3.gg
+    handle: "@t3dotgg"
+    channel_id: UCbRP3c757lWg9M-U7TyEkXA
+    stance: skeptical
+    note: Sharply critical of AI tooling. Main source for the contra side.
+    target_videos: 8
+
+  - name: ThePrimeagen
+    handle: "@ThePrimeagen"
+    channel_id: UC8ENHE5xdFSwx71u3fDH5Xw
+    stance: skeptical
+    note: Long videos, a lot of transcript text.
+    target_videos: 5
+
+  - name: Fireship
+    handle: "@Fireship"
+    channel_id: UCsBjURrPoezykLs9EqgamOA
+    stance: skeptical
+    note: Short and ironic. Little text per video, but dense.
+    target_videos: 5
+
+  # --- Separate: a reference on RAG itself ---
+  - name: Greg Kamradt
+    handle: "@DataIndependent"
+    channel_id: UCyR2Ct3pDOeZSRyZH5hPO-Q
+    stance: practical
+    note: >
+      The series on levels of text splitting. Enters the corpus twice: as a
+      source of claims, and as a reference for our own chunking configurations.
+    target_videos: 4
+
+# ---------------------------------------------------------------------------
+# TOPICS — what the golden set is built around
+# ---------------------------------------------------------------------------
+
+topics:
+  - id: reliability
+    name: Reliability and hallucination in agentic coding
+    kinds: [factual, contradiction]
+    note: >
+      The richest topic for contradictions. Hype channels show successful runs,
+      skeptics show broken ones. Both are right about their own cases.
+
+  - id: cost
+    name: Cost, limits, token burn
+    kinds: [factual, comparative]
+    note: >
+      Here contradictions are often about TIME: pricing and limits changed. The
+      best source for "outdated vs. current" questions.
+
+  - id: context-window
+    name: Working with a large codebase and context
+    kinds: [factual, comparative, contradiction]
+
+  - id: autonomy
+    name: How far an agent can be left to work unsupervised
+    kinds: [contradiction]
+    note: A purely ideological disagreement. Few facts, many positions.
+
+  - id: mcp-setup
+    name: Setting up MCP servers, and the pitfalls
+    kinds: [factual]
+    note: The most concrete claims, the easiest to pin to an exact span.
+
+  - id: migration
+    name: Switching between tools, why people moved from X to Y
+    kinds: [comparative, contradiction]
+
+  - id: testing
+    name: Testing and verifying agent-generated code
+    kinds: [factual, comparative]
+
+  - id: absent
+    name: Tools absent from the corpus
+    kinds: [negative]
+    note: Questions are built from tools_deliberately_absent.
+
+# ---------------------------------------------------------------------------
+# VIDEO SELECTION RULES
+# ---------------------------------------------------------------------------
+
+selection_rules:
+  - A 12-18 month time range, not only recent videos. Outdated claims are the
+    second source of contradictions, alongside differences of opinion.
+  - At least 3 different channels per tool, including at least one with
+    stance != hype.
+  - Video length 8-60 minutes. Shorter ones give too little text; longer
+    streams dilute the corpus with noise.
+  - Skip videos without a transcript as a normal case, and log the reason.
+  - Deduplicate on normalized transcript text, not on youtube_id — the same
+    video gets reuploaded.
+  - Videos are selected BEFORE the questions are written. Questions follow the
+    corpus, not the other way round.
+
+# ---------------------------------------------------------------------------
+# TARGET BALANCE (checked during ingest)
+# ---------------------------------------------------------------------------
+
+targets:
+  total_videos: 78          # sum of target_videos across channels
+  min_videos: 30            # floor if the corpus has to be cut
+  stance_share:
+    hype: 0.35
+    practical: 0.44
+    skeptical: 0.21
+  transcript_kind:
+    note: >
+      Not a target value but mandatory bookkeeping. Keep manual and generated
+      apart — their quality differs, and it is a free extra cut of the
+      results.
+
+# ---------------------------------------------------------------------------
+# VIDEOS — filled in by hand during ingest
+# ---------------------------------------------------------------------------
+# Format:
+#   - youtube_id: dQw4w9WgXcQ
+#     channel: Matthew Berman
+#     tools: [claude-code, cursor]
+#     topics: [reliability, cost]
+
+videos: []

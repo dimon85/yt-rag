@@ -1,0 +1,26 @@
+# Raw transcripts — fetched once, never committed (spec: cache/)
+cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs, run artifacts
+*.log
+runs/*.jsonl
+
+# OS
+.DS_Store
+
+# Ukrainian-language source copies — kept locally, not published
+*_ua.md
+*_ua.yaml
+
+# Personal working plan — session schedule, time budget, cut list
+docs/plan.md
