@@ -32,20 +32,27 @@ tools:
     aliases: [ "codex", "openai codex", "codex cli" ]
     target_videos: 12
 
-  - id: windsurf
-    name: Windsurf
-    aliases: [ "windsurf", "cascade", "codeium" ]
-    target_videos: 10
-
   - id: mcp
     name: MCP
     aliases: [ "mcp", "model context protocol", "mcp server", "mcp servers" ]
     target_videos: 12
 
-  - id: copilot
-    name: GitHub Copilot
-    aliases: [ "copilot", "github copilot", "copilot workspace" ]
-    target_videos: 10
+# Dropped after measuring the ingested corpus, not before. Counted over all 78
+# transcripts:
+#
+#   windsurf   4 mentions, 3 videos, 0 channels above the 3-mention threshold
+#   copilot   15 mentions, 3 videos, 1 channel
+#
+# Neither can carry a factual question, and neither can meet the rule of 3
+# channels with at least one non-hype. They are NOT moved to
+# tools_deliberately_absent either: they are mentioned, so a negative question
+# about them could legitimately retrieve something, which is the one thing a
+# negative question must not do.
+#
+# The alternative was topping the corpus up with videos found by searching for
+# these tools. Rejected: that turns the corpus from "what these channels
+# published" into "what exists about this tool", and the hype/skeptical balance
+# the contradiction questions depend on is a property of the channel mix.
 
 # Tools deliberately kept OUT of the corpus — the source of negative questions.
 # Questions about them must return nothing. If the system confidently returns
