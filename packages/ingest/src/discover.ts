@@ -197,6 +197,23 @@ for (const c of perChannel) {
   console.log(`${c.name.padEnd(22)} scanned ${String(c.scanned).padStart(3)}  kept ${String(c.kept).padStart(3)}${short}`);
 }
 
+// A shallow re-scan replaces a channel with fewer videos than it had, which
+// shrinks the corpus without anything looking wrong: every filter passed, there
+// was simply less to pass it. Worth saying out loud before the file is written.
+const shrunk = channels
+  .map((ch) => ({
+    name: ch.name,
+    before: cfg.videos.filter((v) => v.channel === ch.name).length,
+    after: kept.filter((v) => v.channel === ch.name).length,
+  }))
+  .filter((c) => c.after < c.before);
+
+if (shrunk.length > 0) {
+  console.log("\nTHIS RUN SHRINKS THE CORPUS:");
+  for (const c of shrunk) console.log(`  ${c.name}: ${c.before} -> ${c.after}`);
+  console.log("  A deeper --scan usually explains it: the newest videos are the short ones.");
+}
+
 if (blocked.length > 0) {
   console.log(`\nCUT SHORT BY THROTTLING: ${blocked.join(", ")}`);
   console.log("  Re-run later to finish these; cached results make it cheap.");
@@ -207,21 +224,30 @@ for (const [reason, n] of Object.entries(skipped).sort((a, b) => b[1] - a[1])) {
   console.log(`  ${reason.padEnd(18)} ${n}`);
 }
 
-const spread = spreadMonths(kept.map((v) => v.published_at));
-console.log(`\ntotal kept:      ${kept.length}  (target ${cfg.targets.total_videos}, floor ${cfg.targets.min_videos})`);
+// Totals describe the corpus as it will stand after the merge, not just this
+// run. A single-channel run otherwise reports "total kept: 0 (target 78)",
+// which reads as an empty corpus rather than an untouched one.
+const merged = mergeIntoCorpus(cfg.videos, kept, channels.map((c) => c.name));
+const partial = merged.length !== kept.length;
+
+const spread = spreadMonths(merged.map((v) => v.published_at));
+console.log(
+  `\ntotal in corpus: ${merged.length}  (target ${cfg.targets.total_videos}, floor ${cfg.targets.min_videos})` +
+  (partial ? `  — ${kept.length} from this run, ${merged.length - kept.length} untouched` : ""),
+);
 console.log(`date spread:     ${spread.toFixed(1)} months` + (spread < 12 ? "  BELOW the 12-month rule" : ""));
 
-const byKind = kept.reduce<Record<string, number>>((a, v) => ((a[v.transcript_kind] = (a[v.transcript_kind] ?? 0) + 1), a), {});
+const byKind = merged.reduce<Record<string, number>>((a, v) => ((a[v.transcript_kind] = (a[v.transcript_kind] ?? 0) + 1), a), {});
 console.log(`transcript kind: ${JSON.stringify(byKind)}`);
 
-const untagged = kept.filter((v) => v.tools.length === 0).length;
+const untagged = merged.filter((v) => v.tools.length === 0).length;
 console.log(`no tool in title: ${untagged}  (tools are matched on title only — annotate the rest by hand)`);
 
 // Rule: at least 3 channels per tool, one of them not hype.
 const stanceOf = new Map(cfg.channels.map((c) => [c.name, c.stance]));
 console.log("\nchannels per tool:");
 for (const t of cfg.tools) {
-  const chans = new Set(kept.filter((v) => v.tools.includes(t.id)).map((v) => v.channel));
+  const chans = new Set(merged.filter((v) => v.tools.includes(t.id)).map((v) => v.channel));
   const nonHype = [...chans].filter((c) => stanceOf.get(c) !== "hype").length;
   const bad = chans.size < 3 || nonHype === 0 ? "  RULE UNMET" : "";
   console.log(`  ${t.id.padEnd(14)} ${String(chans.size).padStart(2)} channels, ${nonHype} non-hype${bad}`);
@@ -230,11 +256,6 @@ for (const t of cfg.tools) {
 if (values["dry-run"]) {
   console.log("\n--dry-run: corpus.yaml not written");
 } else {
-  const merged = mergeIntoCorpus(cfg.videos, kept, channels.map((c) => c.name));
   writeVideos(merged);
-  const untouched = merged.length - kept.length;
-  console.log(
-    `\nwrote ${merged.length} videos to corpus.yaml` +
-    (untouched > 0 ? ` (${kept.length} from this run, ${untouched} kept from other channels)` : ""),
-  );
+  console.log(`\nwrote ${merged.length} videos to corpus.yaml`);
 }

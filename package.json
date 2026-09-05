@@ -6,11 +6,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "discover": "pnpm --filter @yt-rag/ingest discover",
+    "discover": "node --experimental-strip-types packages/ingest/src/discover.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "ingest": "pnpm --filter @yt-rag/ingest ingest",
-    "grep": "pnpm --filter @yt-rag/ingest grep"
+    "ingest": "node --experimental-strip-types packages/ingest/src/ingest.ts",
+    "grep": "node --experimental-strip-types packages/ingest/src/search.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -15,13 +15,24 @@ import { parseArgs } from "node:util";
 import { CACHE_DIR, loadCorpus, type Video } from "./corpus.ts";
 import { normalizeTranscript, toolMentions, type Segment } from "./text.ts";
 
+const HELP = `
+usage: pnpm grep <query> [--stance S] [--channel NAME] [--context CHARS] [--limit N]
+       pnpm grep --cells
+
+  <query>            phrase to find, case-insensitive, matched across segment
+                     boundaries so a phrase split over two captions still hits
+  --stance S         hype | practical | skeptical
+  --channel NAME     substring of the channel name
+  --context CHARS    characters of surrounding text per hit (default 220)
+  --limit N          hits to print (default 20)
+  --cells            what material each tool has, by stance, before reading any
+
+Each hit prints a timestamped link and a ready-to-paste gold span.
+`.trimStart();
+
+/** Bad input: say what was wrong, then how to call it. */
 function usage(message: string): never {
-  console.error(
-    `${message}\n\n` +
-    `usage: pnpm grep -- <query> [--tool ID] [--stance S] [--channel NAME]\n` +
-    `                     [--context CHARS] [--limit N]\n` +
-    `       pnpm grep -- --cells`,
-  );
+  console.error(`${message}\n\n${HELP}`);
   process.exit(2);
 }
 
@@ -89,7 +100,12 @@ if (values.cells) {
   process.exit(0);
 }
 
-if (!query) usage("nothing to search for");
+// A bare `pnpm grep` is a request for help, not a mistake: print it and exit
+// cleanly, so the shell does not decorate it with a failed-command trace.
+if (!query) {
+  console.log(HELP);
+  process.exit(0);
+}
 
 // ─── search ──────────────────────────────────────────────────────────────────
 
