@@ -1,0 +1,12 @@
+{
+  "name": "@yt-rag/ingest",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "node --experimental-strip-types src/discover.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.6.0",
+    "zod": "^3.24.0"
+  }
+}
