@@ -20,7 +20,7 @@ import { fetchMeta, listChannel, type VideoMeta } from "./ytdlp.ts";
 const META_DIR = join(CACHE_DIR, "meta");
 
 function usage(message: string): never {
-  console.error(`${message}\n\nusage: pnpm discover [--channel @handle] [--scan N] [--sleep MS] [--cookies BROWSER] [--dry-run]`);
+  console.error(`${message}\n\nusage: pnpm discover [--channel @handle] [--scan N] [--sleep MS]\n       [--cookies BROWSER] [--allow-partial] [--dry-run]`);
   process.exit(2);
 }
 
@@ -39,6 +39,7 @@ const { values } = (() => {
         sleep: { type: "string", default: "400" },
         cookies: { type: "string" },
         "dry-run": { type: "boolean", default: false },
+        "allow-partial": { type: "boolean", default: false },
       },
       allowPositionals: false,
     });
@@ -108,6 +109,7 @@ async function meta(id: string): Promise<Cached | null> {
 }
 
 const kept: Video[] = [];
+const blocked: string[] = [];
 const skipped: Record<string, number> = {};
 const perChannel: { name: string; scanned: number; kept: number }[] = [];
 
@@ -126,14 +128,24 @@ for (const ch of channels) {
   for (const e of worthFetching) {
     const c = await meta(e.youtube_id);
     if (c === null) {
-      // Five backoffs and still blocked. Stopping beats finishing with a
-      // corpus that is quietly missing whole channels.
-      console.error(
-        `\nstill throttled after 5 attempts on ${e.youtube_id}.\n` +
-        `Cached results are kept, so a later run resumes where this one stopped.\n` +
-        `Try a longer --sleep, or --cookies chrome to authenticate.`,
-      );
-      process.exit(3);
+      // Five backoffs and still blocked.
+      //
+      // The invariant worth protecting is "never silently short", not "never
+      // partial". Exiting outright means one stubborn channel discards the work
+      // done for all the others — which happened twice. With --allow-partial the
+      // run writes what it has, and the summary names every channel cut short.
+      if (!values["allow-partial"]) {
+        console.error(
+          `\nstill throttled after 5 attempts on ${e.youtube_id}.\n` +
+          `Cached results are kept, so a later run resumes where this one stopped.\n` +
+          `Try a longer --sleep, --cookies chrome, or --allow-partial to write\n` +
+          `what has been collected so far.`,
+        );
+        process.exit(3);
+      }
+      blocked.push(ch.name);
+      process.stdout.write(`  throttled — stopping this channel, keeping what it has\n`);
+      break;
     }
     if (c.kind === "gone") {
       skipped["gone"] = (skipped["gone"] ?? 0) + 1;
@@ -182,6 +194,11 @@ for (const c of perChannel) {
   const target = cfg.channels.find((x) => x.name === c.name)!.target_videos;
   const short = c.kept < target ? `  SHORT by ${target - c.kept}` : "";
   console.log(`${c.name.padEnd(22)} scanned ${String(c.scanned).padStart(3)}  kept ${String(c.kept).padStart(3)}${short}`);
+}
+
+if (blocked.length > 0) {
+  console.log(`\nCUT SHORT BY THROTTLING: ${blocked.join(", ")}`);
+  console.log("  Re-run later to finish these; cached results make it cheap.");
 }
 
 console.log("\nskipped:");
