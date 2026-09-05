@@ -1,0 +1,14 @@
+{
+  "name": "@yt-rag/ingest",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "node --experimental-strip-types src/discover.ts",
+    "ingest": "node --experimental-strip-types src/ingest.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.6.0",
+    "youtube-transcript-plus": "^2.0.1",
+    "zod": "^3.24.0"
+  }
+}

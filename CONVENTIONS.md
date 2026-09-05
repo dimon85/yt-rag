@@ -62,10 +62,19 @@ generate answers. Full spec: `docs/spec.md`.
   verify that, don't assume it.
 - `manual` and `generated` transcripts stay distinguishable
   (`videos.transcript_kind`). Their quality differs and it's a useful cut.
+- `packages/ingest/src/select.ts` is pure functions too: candidates in,
+  decisions out. Every rejected video carries the reason it was rejected, and
+  the reasons are counted in the run summary — a corpus that quietly lost half
+  its videos looks identical to one that never had them.
+- Videos are picked spread across the time window, never as the newest N.
+  yt-dlp returns a channel newest-first, and slicing the top gave a set
+  spanning 0.3 months on the first real run — every per-video filter passed
+  and the 12-month rule was broken by construction.
 
 ## Commands
 
 ```
+pnpm discover          # list channels via yt-dlp → fill videos: in corpus.yaml
 pnpm ingest            # fetch transcripts → cache → db
 pnpm chunk --config N  # build a chunk_set from configs.yaml
 pnpm embed --set N     # embed a chunk_set

@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+
+# vitest pulls esbuild, which has a postinstall script. Declared here rather
+# than approved interactively, so a fresh clone installs without a prompt.
+allowBuilds:
+  esbuild: true
