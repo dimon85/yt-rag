@@ -55,28 +55,56 @@ export type VideoMeta = {
   has_auto_en: boolean;
 };
 
-export async function fetchMeta(youtubeId: string): Promise<VideoMeta | null> {
+/**
+ * A failed fetch is two different things and they need opposite handling.
+ *
+ * `gone` is a property of the video: private, removed, members-only,
+ * region-blocked. It will be just as gone tomorrow, so it is a normal outcome —
+ * record it and move on.
+ *
+ * `throttled` is a property of the moment: YouTube's "Sign in to confirm you're
+ * not a bot", or a 429. The video is fine; we are the problem. Treating this
+ * like `gone` is how a run silently loses a channel — on the first full run,
+ * 87 videos were recorded as unavailable when they were nothing of the sort,
+ * and the last two channels came out empty because of it.
+ */
+export type FetchResult =
+  | { kind: "ok"; meta: VideoMeta }
+  | { kind: "gone"; reason: string }
+  | { kind: "throttled"; reason: string };
+
+const THROTTLED = /confirm you.?re not a bot|HTTP Error 429|Too Many Requests|rate.?limit/i;
+const GONE = /Video unavailable|Private video|has been removed|members-only|account associated .* has been terminated|violat|not available in your country|age.?restricted/i;
+
+export async function fetchMeta(youtubeId: string, cookiesFrom?: string): Promise<FetchResult> {
+  const args = ["--skip-download", "--no-warnings", "-J"];
+  if (cookiesFrom) args.push("--cookies-from-browser", cookiesFrom);
+  args.push(`https://www.youtube.com/watch?v=${youtubeId}`);
+
   try {
-    const { stdout } = await run(
-      "yt-dlp",
-      ["--skip-download", "--no-warnings", "-J", `https://www.youtube.com/watch?v=${youtubeId}`],
-      { maxBuffer: MAX_BUFFER },
-    );
+    const { stdout } = await run("yt-dlp", args, { maxBuffer: MAX_BUFFER });
     const d = JSON.parse(stdout);
     return {
-      youtube_id: youtubeId,
-      title: d.title ?? "",
-      channel: d.channel ?? d.uploader ?? "",
-      published_at: isoDate(d.upload_date),
-      duration_s: typeof d.duration === "number" ? d.duration : null,
-      view_count: typeof d.view_count === "number" ? d.view_count : null,
-      has_manual_en: hasEnglish(d.subtitles),
-      has_auto_en: hasEnglish(d.automatic_captions),
+      kind: "ok",
+      meta: {
+        youtube_id: youtubeId,
+        title: d.title ?? "",
+        channel: d.channel ?? d.uploader ?? "",
+        published_at: isoDate(d.upload_date),
+        duration_s: typeof d.duration === "number" ? d.duration : null,
+        view_count: typeof d.view_count === "number" ? d.view_count : null,
+        has_manual_en: hasEnglish(d.subtitles),
+        has_auto_en: hasEnglish(d.automatic_captions),
+      },
     };
-  } catch {
-    // Private, removed, region-blocked, age-gated: all normal outcomes here.
-    // The caller records the id as unavailable rather than failing the run.
-    return null;
+  } catch (e) {
+    const message = String((e as { stderr?: string; message?: string }).stderr
+      ?? (e as Error).message ?? e).trim().split("\n").at(-1) ?? "";
+    if (THROTTLED.test(message)) return { kind: "throttled", reason: message };
+    if (GONE.test(message)) return { kind: "gone", reason: message };
+    // Unrecognized failures are treated as transient. Being wrong that way
+    // costs a retry; being wrong the other way poisons the cache permanently.
+    return { kind: "throttled", reason: message };
   }
 }
 

@@ -3,6 +3,9 @@
 //   pnpm discover                  # every channel
 //   pnpm discover -- --channel @t3dotgg
 //   pnpm discover -- --scan 60     # how deep into each channel to look
+//   pnpm discover -- --sleep 400   # ms between requests that miss the cache
+//   pnpm discover -- --cookies chrome   # authenticate when YouTube starts
+//                                       # asking us to confirm we're not a bot
 //   pnpm discover -- --dry-run     # report only, corpus.yaml untouched
 //
 // Metadata is cached per video under cache/meta/. Re-runs read the cache and
@@ -17,7 +20,7 @@ import { fetchMeta, listChannel, type VideoMeta } from "./ytdlp.ts";
 const META_DIR = join(CACHE_DIR, "meta");
 
 function usage(message: string): never {
-  console.error(`${message}\n\nusage: pnpm discover [--channel @handle] [--scan N] [--dry-run]`);
+  console.error(`${message}\n\nusage: pnpm discover [--channel @handle] [--scan N] [--sleep MS] [--cookies BROWSER] [--dry-run]`);
   process.exit(2);
 }
 
@@ -33,6 +36,8 @@ const { values } = (() => {
       options: {
         channel: { type: "string" },
         scan: { type: "string", default: "60" },
+        sleep: { type: "string", default: "400" },
+        cookies: { type: "string" },
         "dry-run": { type: "boolean", default: false },
       },
       allowPositionals: false,
@@ -45,6 +50,9 @@ const { values } = (() => {
 const scan = Number(values.scan);
 if (!Number.isInteger(scan) || scan < 1) usage(`--scan must be a positive integer, got ${values.scan}`);
 
+const sleepMs = Number(values.sleep);
+if (!Number.isInteger(sleepMs) || sleepMs < 0) usage(`--sleep must be a non-negative integer, got ${values.sleep}`);
+
 const cfg = loadCorpus();
 const channels = values.channel
   ? cfg.channels.filter((c) => c.handle === values.channel)
@@ -56,13 +64,47 @@ const window = { minDurationS, maxDurationS, months: cfg.targets.window_months, 
 
 mkdirSync(META_DIR, { recursive: true });
 
-/** One request per video, then never again. */
-async function meta(id: string): Promise<VideoMeta | null> {
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type Cached = { kind: "ok"; meta: VideoMeta } | { kind: "gone"; reason: string };
+
+/**
+ * One request per video, then never again.
+ *
+ * Only settled outcomes are cached. A throttled request is not an answer about
+ * the video, so writing it to the cache would turn a temporary block into a
+ * permanent verdict — which is exactly what happened on the first full run.
+ *
+ * The pause applies only to requests that actually go out: a cache hit costs
+ * nothing, or a re-run over 600 cached videos would idle for minutes doing no
+ * work.
+ */
+async function meta(id: string): Promise<Cached | null> {
   const path = join(META_DIR, `${id}.json`);
-  if (existsSync(path)) return JSON.parse(readFileSync(path, "utf8"));
-  const m = await fetchMeta(id);
-  writeFileSync(path, JSON.stringify(m, null, 2));
-  return m;
+  if (existsSync(path)) {
+    const raw = JSON.parse(readFileSync(path, "utf8"));
+    if (raw && typeof raw === "object" && "kind" in raw) return raw as Cached;
+    // Pre-fix cache entry. `null` there meant "unavailable", which was often a
+    // throttle. Ignore it and re-fetch rather than trusting it.
+    if (raw !== null) return { kind: "ok", meta: raw as VideoMeta };
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const r = await fetchMeta(id, values.cookies);
+    if (r.kind === "throttled") {
+      const backoff = Math.min(60_000, 2_000 * 2 ** attempt);
+      process.stdout.write(`    throttled, waiting ${backoff / 1000}s — ${r.reason.slice(0, 70)}\n`);
+      await wait(backoff);
+      continue;
+    }
+    const settled: Cached = r.kind === "ok"
+      ? { kind: "ok", meta: r.meta }
+      : { kind: "gone", reason: r.reason };
+    writeFileSync(path, JSON.stringify(settled, null, 2));
+    if (sleepMs > 0) await wait(sleepMs);
+    return settled;
+  }
+  return null;   // still throttled after five attempts
 }
 
 const kept: Video[] = [];
@@ -82,11 +124,22 @@ for (const ch of channels) {
 
   const candidates: Candidate[] = [];
   for (const e of worthFetching) {
-    const m = await meta(e.youtube_id);
-    if (!m) {
-      skipped["unavailable"] = (skipped["unavailable"] ?? 0) + 1;
+    const c = await meta(e.youtube_id);
+    if (c === null) {
+      // Five backoffs and still blocked. Stopping beats finishing with a
+      // corpus that is quietly missing whole channels.
+      console.error(
+        `\nstill throttled after 5 attempts on ${e.youtube_id}.\n` +
+        `Cached results are kept, so a later run resumes where this one stopped.\n` +
+        `Try a longer --sleep, or --cookies chrome to authenticate.`,
+      );
+      process.exit(3);
+    }
+    if (c.kind === "gone") {
+      skipped["gone"] = (skipped["gone"] ?? 0) + 1;
       continue;
     }
+    const m = c.meta;
     candidates.push({
       youtube_id: m.youtube_id,
       channel: ch.name,
