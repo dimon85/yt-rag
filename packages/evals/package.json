@@ -1,0 +1,10 @@
+{
+  "name": "@yt-rag/evals",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@yt-rag/ingest": "workspace:*",
+    "yaml": "^2.6.0",
+    "zod": "^3.24.0"
+  }
+}

@@ -1,0 +1,38 @@
+# The golden set. Frozen once written: it is the instrument, not a result.
+#
+# Rules that matter more than they look (docs/spec.md, "Golden set"):
+#
+#   1. Write the question BEFORE looking at what the system retrieves.
+#      Afterwards you are describing the retriever, not testing it.
+#   2. Write it in your own words, not the transcript's. A question lifted
+#      from the passage is found by term matching alone, scores well for every
+#      configuration, and quietly removes itself from the comparison.
+#      `pnpm golden` warns above 75% word overlap.
+#   3. Go from the corpus to the question. `pnpm grep "some phrase"` prints
+#      hits with a ready-to-paste gold span.
+#   4. Changing the set is a new version: bump `version`, record the new
+#      golden_sha, and do not compare across versions. Growing it counts.
+#
+# Shape by kind, enforced by `pnpm golden`:
+#
+#   factual        exactly one gold span — the answer sits in one place
+#   comparative    spans from 2+ different videos
+#   contradiction  both a pro and a contra span, from different videos
+#   negative       no gold spans at all; the answer is not in the corpus
+#
+# Example (delete when the first real question lands):
+#
+#   - slug: cc-session-limit
+#     text: How long can an agent run before it has to be reset?
+#     kind: factual
+#     topics: [context-window]
+#     tools: [claude-code]
+#     gold:
+#       - video: EHlqRx0r4BI
+#         start_s: 680.96
+#         end_s: 698.92
+#         note: gives the default and recommends changing it
+
+version: 1
+
+questions: []
