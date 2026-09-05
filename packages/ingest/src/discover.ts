@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { CACHE_DIR, loadCorpus, writeVideos, type Video } from "./corpus.ts";
+import { mergeIntoCorpus } from "./merge.ts";
 import { select, spreadMonths, spreadPick, toolsInTitle, type Candidate } from "./select.ts";
 import { fetchMeta, listChannel, type VideoMeta } from "./ytdlp.ts";
 
@@ -229,6 +230,11 @@ for (const t of cfg.tools) {
 if (values["dry-run"]) {
   console.log("\n--dry-run: corpus.yaml not written");
 } else {
-  writeVideos(kept);
-  console.log(`\nwrote ${kept.length} videos to corpus.yaml`);
+  const merged = mergeIntoCorpus(cfg.videos, kept, channels.map((c) => c.name));
+  writeVideos(merged);
+  const untouched = merged.length - kept.length;
+  console.log(
+    `\nwrote ${merged.length} videos to corpus.yaml` +
+    (untouched > 0 ? ` (${kept.length} from this run, ${untouched} kept from other channels)` : ""),
+  );
 }

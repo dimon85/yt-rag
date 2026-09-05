@@ -21,16 +21,31 @@ const errorClasses = ytp as unknown as Record<string, ErrorClass | undefined>;
 
 export const ERROR_NAMES = {
   throttled: ["YoutubeTranscriptTooManyRequestError"],
+  /** Settled facts about the video. Safe to cache forever. */
   gone: [
     "YoutubeTranscriptVideoUnavailableError",
     "YoutubeTranscriptDisabledError",
-    "YoutubeTranscriptNotAvailableError",
     "YoutubeTranscriptNotAvailableLanguageError",
   ],
+  /**
+   * NotAvailableError is NOT a settled fact, despite its name. The library
+   * throws it from five different places, and three of them are transient:
+   *
+   *   - the page body had no INNERTUBE_API_KEY — i.e. YouTube served something
+   *     other than the video page, which is exactly what a bot check looks like
+   *   - the transcript request returned any non-OK status except 429, so 500,
+   *     503 and 403 all arrive as "not available"
+   *   - an explicit fallback in the library: "we can't assert they're disabled;
+   *     treat as not available"
+   *
+   * Caching this as `gone` means one 503 removes a video from the corpus
+   * permanently, and no later run ever retries it.
+   */
+  ambiguous: ["YoutubeTranscriptNotAvailableError"],
 } as const;
 
 export const missingErrorClasses = (): string[] =>
-  [...ERROR_NAMES.throttled, ...ERROR_NAMES.gone]
+  [...ERROR_NAMES.throttled, ...ERROR_NAMES.gone, ...ERROR_NAMES.ambiguous]
     .filter((n) => typeof errorClasses[n] !== "function");
 
 const isOneOf = (e: unknown, names: readonly string[]): boolean =>
@@ -42,6 +57,7 @@ const isOneOf = (e: unknown, names: readonly string[]): boolean =>
 export type TranscriptResult =
   | { kind: "ok"; segments: Segment[] }
   | { kind: "gone"; reason: string }
+  | { kind: "ambiguous"; reason: string }
   | { kind: "throttled"; reason: string };
 
 export async function fetchTranscript(youtubeId: string): Promise<TranscriptResult> {
@@ -60,9 +76,12 @@ export async function fetchTranscript(youtubeId: string): Promise<TranscriptResu
   } catch (e) {
     if (isOneOf(e, ERROR_NAMES.throttled)) return { kind: "throttled", reason: "429 from YouTube" };
     // Each of these is a settled fact about the video: captions switched off,
-    // none produced, no English track, or the video itself is gone.
+    // no English track, or the video itself is gone.
     if (isOneOf(e, ERROR_NAMES.gone)) {
       return { kind: "gone", reason: (e as Error).constructor.name };
+    }
+    if (isOneOf(e, ERROR_NAMES.ambiguous)) {
+      return { kind: "ambiguous", reason: (e as Error).constructor.name };
     }
     // Network blips, parser surprises, anything unrecognized: transient by
     // default. Being wrong that way costs a retry; the other way poisons cache.

@@ -57,9 +57,13 @@ async function transcript(v: Video): Promise<Cached | null> {
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const r = await fetchTranscript(v.youtube_id);
-    if (r.kind === "throttled") {
+    if (r.kind === "throttled" || r.kind === "ambiguous") {
+      // `ambiguous` is retried and never cached. corpus.yaml only holds videos
+      // that yt-dlp reported as having an English caption track, so "no
+      // transcript available" contradicts what we already know about this
+      // video — far more likely a 5xx or a bot-check page than a fact.
       const backoff = Math.min(60_000, 2_000 * 2 ** attempt);
-      process.stdout.write(`    throttled, waiting ${backoff / 1000}s — ${r.reason}\n`);
+      process.stdout.write(`    ${r.kind}, waiting ${backoff / 1000}s — ${r.reason}\n`);
       await wait(backoff);
       continue;
     }
@@ -75,6 +79,7 @@ async function transcript(v: Video): Promise<Cached | null> {
 
 const seen = new Map<string, string>();          // fingerprint → youtube_id
 const gone: { id: string; reason: string }[] = [];
+const unresolved: string[] = [];
 const dupes: { id: string; of: string }[] = [];
 const ok: { v: Video; segments: Segment[]; tools: string[] }[] = [];
 let fetched = 0;
@@ -86,11 +91,12 @@ for (const v of cfg.videos) {
   if (!before) fetched++;
 
   if (c === null) {
-    console.error(
-      `\nstill throttled after 5 attempts on ${v.youtube_id}.\n` +
-      `Cached transcripts are kept, so a later run resumes from here.`,
-    );
-    process.exit(3);
+    // Nothing is written for this video, so a later run retries it from
+    // scratch. Reported rather than swallowed: a corpus quietly short of
+    // transcripts is the failure mode this whole split exists to prevent.
+    unresolved.push(v.youtube_id);
+    console.error(`  unresolved after 5 attempts: ${v.youtube_id}  ${v.title.slice(0, 44)}`);
+    continue;
   }
   if (c.kind === "gone") {
     gone.push({ id: v.youtube_id, reason: c.reason });
@@ -117,6 +123,7 @@ console.log("\n" + "─".repeat(64));
 console.log(`videos in corpus:  ${cfg.videos.length}`);
 console.log(`transcripts ok:    ${ok.length}   (${fetched} fetched this run, rest from cache)`);
 console.log(`no transcript:     ${gone.length}`);
+console.log(`unresolved:        ${unresolved.length}   (retry later; nothing was cached for these)`);
 console.log(`duplicate text:    ${dupes.length}`);
 
 for (const d of dupes) console.log(`  ${d.id} duplicates ${d.of}`);

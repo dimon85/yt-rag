@@ -55,6 +55,27 @@ describe("toolMentions", () => {
     expect(toolMentions(n, TOOLS).get("claude-code")).toBe(2);
   });
 
+  test("overlapping aliases count the phrase once", () => {
+    // ["cursor", "cursor composer", "composer"] all fire on "cursor composer".
+    // Counting each alias made one utterance into three mentions, enough to
+    // clear the tagging threshold on its own.
+    const tools = [{ id: "cursor", aliases: ["cursor", "cursor composer", "cursor ide", "composer"] }];
+    const n = normalizeTranscript([seg("i use cursor composer daily", 0, 1)]);
+    expect(toolMentions(n, tools).get("cursor")).toBe(1);
+  });
+
+  test("separate occurrences still count separately", () => {
+    const tools = [{ id: "cursor", aliases: ["cursor", "composer"] }];
+    const n = normalizeTranscript([seg("cursor and composer are different", 0, 1)]);
+    expect(toolMentions(n, tools).get("cursor")).toBe(2);
+  });
+
+  test("adjacent repeats are not merged", () => {
+    const tools = [{ id: "cursor", aliases: ["cursor"] }];
+    const n = normalizeTranscript([seg("cursor cursor cursor", 0, 1)]);
+    expect(toolMentions(n, tools).get("cursor")).toBe(3);
+  });
+
   test("matches whole words only", () => {
     const n = normalizeTranscript([seg("soccer and accordion", 0, 1)]);
     expect(toolMentions(n, TOOLS).get("claude-code")).toBeUndefined();

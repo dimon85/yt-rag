@@ -42,24 +42,50 @@ export function toolMentions(
 ): Map<string, number> {
   const hay = ` ${normalized} `;
   const out = new Map<string, number>();
+
   for (const t of tools) {
-    let n = 0;
+    // Spans, not a running total. Aliases of one tool overlap by design —
+    // ["cursor", "cursor composer", "composer"] all fire on the phrase "cursor
+    // composer" — so counting each alias separately turns one utterance into
+    // three mentions, and a single passing phrase clears the tagging threshold
+    // on its own.
+    const spans: [number, number][] = [];
     for (const alias of t.aliases) {
-      const needle = ` ${alias.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+      const needle = ` ${normalizeAlias(alias)} `;
       if (needle.trim() === "") continue;
       let from = 0;
       for (;;) {
-        // Overlapping matches are impossible here because every needle is
-        // padded with spaces, so indexOf from the space before is correct.
         const at = hay.indexOf(needle, from);
         if (at === -1) break;
-        n++;
-        from = at + needle.length - 1;
+        spans.push([at, at + needle.length]);
+        from = at + needle.length - 1;   // needles share their padding space
       }
     }
+    const n = countMerged(spans);
     if (n > 0) out.set(t.id, n);
   }
   return out;
+}
+
+const normalizeAlias = (alias: string) =>
+  alias.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** How many distinct stretches of text the spans cover once overlaps merge. */
+function countMerged(spans: [number, number][]): number {
+  if (spans.length === 0) return 0;
+  spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let merged = 1;
+  let end = spans[0]![1];
+  for (const [s, e] of spans.slice(1)) {
+    // Touching at the shared padding space is not an overlap: " cursor " and
+    // " cursor " in "cursor cursor" abut at one character and are two mentions.
+    if (s < end - 1) end = Math.max(end, e);
+    else {
+      merged++;
+      end = e;
+    }
+  }
+  return merged;
 }
 
 /** Tool ids mentioned at least `min` times, in corpus order. */
