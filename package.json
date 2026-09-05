@@ -9,7 +9,8 @@
     "discover": "pnpm --filter @yt-rag/ingest discover",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "ingest": "pnpm --filter @yt-rag/ingest ingest"
+    "ingest": "pnpm --filter @yt-rag/ingest ingest",
+    "grep": "pnpm --filter @yt-rag/ingest grep"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

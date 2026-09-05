@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
-  coverageSeconds, fingerprint, normalizeTranscript, toolMentions, toolsInText,
-  type Segment,
+  coverageSeconds, decodeEntities, fingerprint, normalizeTranscript, toolMentions,
+  toolsInText, type Segment,
 } from "../src/text.ts";
 
 const seg = (text: string, start_s: number, end_s: number): Segment => ({ text, start_s, end_s });
@@ -115,5 +115,31 @@ describe("coverageSeconds", () => {
 
   test("an empty transcript covers nothing", () => {
     expect(coverageSeconds([])).toBe(0);
+  });
+});
+
+describe("decodeEntities", () => {
+  test("decodes the entities YouTube actually emits", () => {
+    // &#39; alone occurs 11,709 times in this corpus.
+    expect(decodeEntities("That&#39;s 5 &gt; 3 &amp; &quot;fine&quot;"))
+      .toBe(`That's 5 > 3 & "fine"`);
+  });
+
+  test("handles hex and named forms", () => {
+    expect(decodeEntities("&#x27;a&apos;b&nbsp;c")).toBe("'a'b c");
+  });
+
+  test("leaves unknown entities alone rather than guessing", () => {
+    expect(decodeEntities("a &notareal; b")).toBe("a &notareal; b");
+  });
+
+  test("decodes once, so a literal ampersand survives", () => {
+    // Text that genuinely contains "&#39;" arrives as "&amp;#39;". Decoding
+    // twice would silently turn it into an apostrophe.
+    expect(decodeEntities("write &amp;#39; to escape")).toBe("write &#39; to escape");
+  });
+
+  test("text without entities is untouched", () => {
+    expect(decodeEntities("plain text, nothing to do")).toBe("plain text, nothing to do");
   });
 });

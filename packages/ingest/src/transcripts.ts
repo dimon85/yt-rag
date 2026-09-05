@@ -11,7 +11,7 @@
 // transcripts.test.ts asserts the classes still exist, so an upgrade that
 // renames them fails a test instead of silently reclassifying every error.
 import * as ytp from "youtube-transcript-plus";
-import type { Segment } from "./text.ts";
+import { decodeEntities, type Segment } from "./text.ts";
 
 /** What the library hands back per caption line: seconds, plus a duration. */
 type RawSegment = { text: string; offset: number; duration: number };
@@ -68,7 +68,7 @@ export async function fetchTranscript(youtubeId: string): Promise<TranscriptResu
     return {
       kind: "ok",
       segments: segs.map((s): Segment => ({
-        text: s.text,
+        text: decodeEntities(s.text),
         start_s: round2(s.offset),
         end_s: round2(s.offset + s.duration),
       })),

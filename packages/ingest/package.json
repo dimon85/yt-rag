@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "discover": "node --experimental-strip-types src/discover.ts",
-    "ingest": "node --experimental-strip-types src/ingest.ts"
+    "ingest": "node --experimental-strip-types src/ingest.ts",
+    "grep": "node --experimental-strip-types src/search.ts"
   },
   "dependencies": {
     "yaml": "^2.6.0",
