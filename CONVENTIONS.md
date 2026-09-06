@@ -46,7 +46,18 @@ generate answers. Full spec: `docs/spec.md`.
     out too easy, it gets harder questions — never fewer of the ones the
     baseline answered correctly. Selecting on the retriever's own output tunes
     the set to the retriever.
-12. **Per-`kind` results are descriptive, not comparative.** 18 contradiction
+12. **A hit is `overlap / min(gold_length, chunk_length) >= 0.5`.** Written
+    down because otherwise it gets decided by accident, and the accident has a
+    direction: under "any overlap" a 1024-token chunk crosses more gold spans
+    than a 512-token one whatever its relevance, so the chunk-size comparison
+    is settled before anything is measured. The threshold is identical in every
+    configuration, and `packages/evals/src/hit.ts` is the only place it lives.
+13. **`recall@k` and MRR are computed over questions that have gold spans.**
+    Negatives have none, so they are not scored 0 and not counted in the
+    denominator — MRR over a question with no correct answer is undefined, not
+    zero. They are measured by false-positive rate instead, which is their
+    whole purpose.
+14. **Per-`kind` results are descriptive, not comparative.** 18 contradiction
     and 14 negative questions do not support "A beats B on contradictions".
     Report a proportion with a Clopper-Pearson interval instead.
 

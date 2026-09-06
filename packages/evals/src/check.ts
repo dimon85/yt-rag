@@ -60,7 +60,7 @@ const warnings = issues.filter((i) => i.level === "warning");
 const counts = countByKind(set);
 const pool = counts.factual + counts.comparative + counts.contradiction;
 
-console.log(`golden/questions.yaml — ${set.questions.length} questions, sha ${goldenSha()}\n`);
+console.log(`golden/questions.yaml — ${set.questions.length} questions, sha ${goldenSha(set)}\n`);
 console.log("kind            have  target");
 for (const k of Object.keys(TARGET) as Kind[]) {
   const short = TARGET[k] - counts[k];

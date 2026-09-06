@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  countByKind, lexicalOverlap, validateStructure,
+  countByKind, goldenSha, lexicalOverlap, validateStructure,
   type CorpusFacts, type GoldenSet, type Question,
 } from "../src/golden.ts";
 
@@ -94,11 +94,16 @@ describe("contradiction", () => {
     })))).toContain("every contradiction span needs side: pro or contra");
   });
 
-  test("both sides from one video is rejected", () => {
-    expect(errors(set(q({
+  test("both sides from one video is allowed, with a warning", () => {
+    // An author contradicting themselves in one video is real. The earlier
+    // rule encoded "one side, one video" as a requirement when it was only an
+    // assumption.
+    const s = set(q({
       kind: "contradiction",
-      gold: [span("aaaaaaaaaaa", 10, 40, "pro"), span("aaaaaaaaaaa", 100, 140, "contra")],
-    })))).toContain("both sides must come from different videos");
+      gold: [span("aaaaaaaaaaa", 10, 40, "pro"), span("aaaaaaaaaaa", 600, 640, "contra")],
+    }));
+    expect(errors(s)).toEqual([]);
+    expect(validateStructure(s, corpus).filter((i) => i.level === "warning")).toHaveLength(1);
   });
 });
 
@@ -152,5 +157,44 @@ describe("countByKind", () => {
       q({ slug: "b" }),
       q({ slug: "c", kind: "negative" }),
     ))).toEqual({ factual: 2, comparative: 0, contradiction: 0, negative: 1 });
+  });
+});
+
+describe("goldenSha", () => {
+  const base = set(
+    q({ slug: "b", gold: [span("bbbbbbbbbbb", 10, 40)] }),
+    q({ slug: "a", gold: [span("aaaaaaaaaaa", 10, 40)] }),
+  );
+
+  test("question order does not change the hash", () => {
+    const reordered = set(...[...base.questions].reverse());
+    expect(goldenSha(reordered)).toBe(goldenSha(base));
+  });
+
+  test("whitespace in the question text does not", () => {
+    const respaced = set(...base.questions.map((x) => ({ ...x, text: `  ${x.text}\n  ` })));
+    expect(goldenSha(respaced)).toBe(goldenSha(base));
+  });
+
+  test("notes and topics do not — they annotate, they do not measure", () => {
+    const annotated = set(...base.questions.map((x) => ({ ...x, topics: ["cost"], tools: ["mcp"] })));
+    expect(goldenSha(annotated)).toBe(goldenSha(base));
+  });
+
+  test("rephrasing a question does — it is a different question", () => {
+    const edited = set(...base.questions.map((x) => ({ ...x, text: `${x.text} really` })));
+    expect(goldenSha(edited)).not.toBe(goldenSha(base));
+  });
+
+  test("moving a gold span does", () => {
+    const moved = set(...base.questions.map((x) => ({
+      ...x, gold: x.gold.map((g) => ({ ...g, start_s: g.start_s + 5 })),
+    })));
+    expect(goldenSha(moved)).not.toBe(goldenSha(base));
+  });
+
+  test("adding a question does", () => {
+    expect(goldenSha(set(...base.questions, q({ slug: "c", gold: [span("ccccccccccc", 10, 40)] }))))
+      .not.toBe(goldenSha(base));
   });
 });

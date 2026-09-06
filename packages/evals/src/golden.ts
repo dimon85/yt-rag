@@ -49,13 +49,36 @@ export type GoldenSet = z.infer<typeof GoldenSet>;
 /**
  * The hash recorded in `runs.golden_sha`.
  *
- * Taken over the raw file bytes, not the parsed object: reformatting the YAML
- * is a change to the artifact under git, and two runs that disagree about what
- * the file said should not be treated as comparable just because the questions
- * happened to survive a reindent.
+ * Over a canonical projection, not the raw bytes. Hashing the file would make
+ * a reindent or a reordered list invalidate every earlier run, which is a
+ * false negative about comparability — the questions did not change.
+ *
+ * What is in it: slug, text, kind, and the gold spans, each sorted so that
+ * moving a question up the file changes nothing.
+ *
+ * What is deliberately out: `note`, which is a comment to the annotator, and
+ * `topics` / `tools`, which slice the report rather than decide any retrieval
+ * result. `text` IS in: rephrasing a question makes a different question, and
+ * the old numbers do not carry over.
  */
-export function goldenSha(path = GOLDEN_PATH): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex").slice(0, 12);
+export function goldenSha(set: GoldenSet): string {
+  const canonical = set.questions
+    .map((q) => ({
+      slug: q.slug,
+      text: q.text.trim().replace(/\s+/g, " "),
+      kind: q.kind,
+      gold: [...q.gold]
+        .map((g) => ({
+          video: g.video,
+          start_s: Number(g.start_s.toFixed(2)),
+          end_s: Number(g.end_s.toFixed(2)),
+          side: g.side ?? null,
+        }))
+        .sort((a, b) => a.video.localeCompare(b.video) || a.start_s - b.start_s),
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex").slice(0, 16);
 }
 
 export function loadGolden(path = GOLDEN_PATH): GoldenSet {
@@ -116,7 +139,14 @@ export function validateStructure(set: GoldenSet, corpus: CorpusFacts): Issue[] 
         if (!(sides.has("pro") && sides.has("contra"))) {
           err(q.slug, "contradiction needs both a pro and a contra span — that is what coverage measures");
         }
-        if (videos.size < 2) err(q.slug, "both sides must come from different videos");
+        // Not an error: an author who contradicts themselves inside one video
+        // is a real case, and one of the more interesting ones. The rule
+        // "one side, one video" was an assumption, not a requirement — but
+        // both sides landing in a single chunk would make coverage trivially
+        // satisfied, so it is worth a second look.
+        if (videos.size < 2) {
+          warn(q.slug, "both sides come from one video — check they are far enough apart to land in different chunks");
+        }
         break;
       }
 
