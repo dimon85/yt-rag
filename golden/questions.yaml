@@ -35,4 +35,15 @@
 
 version: 1
 
-questions: []
+questions:
+  - slug: cc-session-cap-tiers
+    text: Which paying customers got more headroom when the session cap changed?
+    kind: factual
+    topics: [cost]
+    tools: [claude-code]
+    gold:
+      - video: Q7n0PGbMW_U
+        start_s: 292.48
+        end_s: 310.4
+        note: names the three tiers; dated claim, contradicted later in the same video
+

@@ -171,6 +171,10 @@ channels:
 topics:
   - id: reliability
     name: Reliability and hallucination in agentic coding
+    # Spoken form, not the topic name: nobody says "reliability" out loud.
+    keywords: [ "broke", "failed", "doesn t work", "hallucinating", "hallucination",
+                "hallucinations", "the problem is", "went wrong", "garbage",
+                "unreliable", "trust it" ]
     kinds: [ factual, contradiction ]
     note: >
       The richest topic for contradictions. Hype channels show successful runs,
@@ -178,6 +182,8 @@ topics:
 
   - id: cost
     name: Cost, limits, token burn
+    keywords: [ "rate limit", "tokens per", "per month", "costs", "expensive",
+                "5 hour", "weekly limit", "burn through", "pricing", "subscription" ]
     kinds: [ factual, comparative ]
     note: >
       Here contradictions are often about TIME: pricing and limits changed. The
@@ -185,24 +191,38 @@ topics:
 
   - id: context-window
     name: Working with a large codebase and context
+    keywords: [ "context window", "context length", "compact", "compacting",
+                "large codebase",
+                "too many files", "runs out of context", "clear the history" ]
     kinds: [ factual, comparative, contradiction ]
 
   - id: autonomy
     name: How far an agent can be left to work unsupervised
+    keywords: [ "let it run", "without supervision", "yolo", "auto accept",
+                "babysit", "review every", "hands off", "autonomous" ]
     kinds: [ contradiction ]
     note: A purely ideological disagreement. Few facts, many positions.
 
   - id: mcp-setup
     name: Setting up MCP servers, and the pitfalls
+    keywords: [ "mcp server", "model context protocol", "config json", "stdio",
+                "add the server", "mcp setup", "tools available" ]
     kinds: [ factual ]
     note: The most concrete claims, the easiest to pin to an exact span.
 
   - id: migration
     name: Switching between tools, why people moved from X to Y
+    keywords: [ "switched from", "moved to", "instead of", "i stopped using",
+                "went back to", "replaced", "better than" ]
     kinds: [ comparative, contradiction ]
 
   - id: testing
     name: Testing and verifying agent-generated code
+    # No bare "ci": whole-word matching would still catch the abbreviation in
+    # contexts that have nothing to do with testing.
+    keywords: [ "write tests", "unit test", "unit tests", "test coverage",
+                "verify the code", "review the diff", "check the output",
+                "continuous integration", "test suite" ]
     kinds: [ factual, comparative ]
 
   - id: absent

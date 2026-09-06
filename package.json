@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "ingest": "node --experimental-strip-types packages/ingest/src/ingest.ts",
     "grep": "node --experimental-strip-types packages/ingest/src/search.ts",
-    "golden": "node --experimental-strip-types packages/evals/src/check.ts"
+    "golden": "node --experimental-strip-types packages/evals/src/check.ts",
+    "candidates": "node --experimental-strip-types packages/ingest/src/candidates-cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
