@@ -520,21 +520,65 @@ Levers also give control pairs for free — the same question shape with and
 without a superseding marker in the transcript ("it used to be 5 hours, now
 it's 50"). That is a finding for the README, not just a bigger set.
 
+### Generating questions, and what it costs
+
+Writing 106 questions by hand is the largest single cost in the project, so
+generation was measured rather than argued about. Five passages, one question
+each, two methods, overlap measured against the original passage:
+
+| method | mean overlap | range |
+|---|---|---|
+| naive — read the passage, write a question | 64% | 45-100% |
+| two-stage bottleneck | 25% | 0-43% |
+| written by hand, for comparison (48 questions) | ~33% | 0-70% |
+
+The naive method inherits the passage's vocabulary, which is the failure that
+matters: a question found by term matching alone scores well for every
+configuration and drops out of the comparison. One of the five came out at 100%.
+
+The bottleneck is two calls with an information gap between them. The first
+states the claim in its own words; the second sees *only* that sentence, never
+the passage, and writes the question. Its distribution lands on top of the
+hand-written one.
+
+It is not sufficient on its own. Overlap says nothing about whether the passage
+actually answers the generated question, and a plausible-looking question about
+something the passage does not address is a worse defect than high overlap,
+because nothing automated catches it. So generation is followed by two checks:
+the overlap thresholds, and a person reading the span to confirm the answer is
+in it. The second is quick — the span is already on screen — but it does not
+automate away.
+
 **Wording is checked from both ends.** `pnpm golden` warns above 75% content-word
 overlap with the span a question points at, and below 15%. Neither is a verdict:
 a question about the context window has to say "context window", and one phrased
 in entirely different words can still be findable by meaning.
 
-The floor earned itself on the first two questions to trip it, at 0% and 10%.
-Neither was found by any retriever at any chunk size — not hard questions but
-unreachable ones. Both were rephrased into the 30-60% band and both are now
-found.
+**The floor flags two different things and cannot tell them apart.** One is a
+question the corpus does not answer — a wrong annotation. The other is a good
+question phrased in entirely different words from the passage that answers it.
 
-The measure does not stem, and that showed up in the same place: one of those
-questions said "skills" and "replaced" where the passage said "skill" and
-"replacement", so part of its 10% was an artefact rather than a real gap. It
-reads lower than a person would judge, which is the safe direction for a warning
-but worth knowing when reading one.
+The second is not a defect. It is the most valuable question type in the set,
+because it is the only kind that separates lexical retrieval from semantic
+retrieval, and separating those is what the ablation is for. One question sits
+at 10% overlap, is never found by BM25 at any chunk size, and *is* found by
+local embeddings at 128 tokens. Raising its overlap would delete exactly the
+signal it carries.
+
+That happened once. Both questions tripping the floor were rephrased on the
+grounds that no retriever found them, and for one of them that was simply
+untrue: only the 512-token runs had been checked. It has been reverted, and the
+note on it now says why it stays at 10%. The other, at 0%, was found by nothing
+at any size and stays rephrased.
+
+So the floor is a prompt to check that the answer really is in the span, not a
+prompt to rewrite.
+
+The measure also does not stem, which showed up in the same place: that question
+says "skills" and "replaced" where the passage says "skill" and "replacement",
+so part of its 10% is an artefact rather than a real gap. It reads lower than a
+person would judge — the safe direction for a warning, but worth knowing when
+reading one.
 
 ### What 90 does not buy
 

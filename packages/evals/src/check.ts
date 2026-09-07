@@ -50,7 +50,9 @@ for (const q of set.questions) {
       slug: q.slug,
       message:
         `only ${Math.round(Math.max(...overlaps) * 100)}% of the question's words appear in ` +
-        `any span it points at — check it is answerable at all, not just hard`,
+        `any span it points at. Check the answer really is in the span. If it is, ` +
+        `keep the question — a pure paraphrase is the only kind that separates lexical ` +
+        `from semantic retrieval, and raising its overlap deletes that signal`,
     });
   }
 

@@ -21,7 +21,7 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 4
+version: 5
 
 questions:
   - slug: cc-session-cap-tiers
@@ -51,7 +51,8 @@ questions:
         note: Six-second command span. Do not widen merely to make overlap scoring
           easier.
   - slug: mcp-skill-replacement-tradeoff
-    text: What guarantee is lost when a skill replaces an MCP integration?
+    text: What becomes harder to guarantee if MCP integrations are replaced entirely
+      by skills and shell commands?
     kind: factual
     topics:
       - migration
@@ -62,8 +63,12 @@ questions:
         start_s: 638.92
         end_s: 659.36
         note: 'The passage qualifies the proposed replacement; retain the explanation of
-          the safeguard. Rephrased from a version at 10% overlap that no
-          retriever found. Part of that 10% was an artefact: the question said
+          the safeguard. KEPT at 10% content-word overlap on purpose. BM25 does
+          not find it at any chunk size and local embeddings at 128 tokens do —
+          which makes it one of the few questions in the set that separates one
+          retriever from another. It was briefly rephrased to 33% on the
+          mistaken grounds that nothing found it; only the 512-token runs had
+          been checked. Part of the 10% is also an artefact: the question says
           "skills" and "replaced" where the passage says "skill" and
           "replacement", and the overlap measure does not stem.'
   - slug: mcp-selective-eager-action
