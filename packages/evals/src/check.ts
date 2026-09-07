@@ -10,7 +10,7 @@ import { CACHE_DIR, loadCorpus } from "../../ingest/src/corpus.ts";
 import type { Segment } from "../../ingest/src/text.ts";
 import {
   countByKind, goldenSha, lexicalOverlap, loadGolden, OVERLAP_FLOOR, OVERLAP_WARN,
-  TARGET, validateStructure, type Issue, type Kind,
+  RECALL_POOL_TARGET, TARGET, validateStructure, type Issue, type Kind,
 } from "./golden.ts";
 
 const corpus = loadCorpus();
@@ -86,7 +86,7 @@ for (const k of Object.keys(TARGET) as Kind[]) {
   );
 }
 console.log(
-  `\nrecall pool: ${pool} of 76 — negatives carry no gold spans, so they do not ` +
+  `\nrecall pool: ${pool} of ${RECALL_POOL_TARGET} — negatives carry no gold spans, so they do not ` +
   `contribute to recall@k or to what the set can detect`,
 );
 

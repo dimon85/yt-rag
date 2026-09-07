@@ -37,10 +37,14 @@ generate answers. Full spec: `docs/spec.md`.
    chunks and query vectors, through that one helper and nowhere else. Padding
    preserves cosine distance exactly; comparing across models never happens,
    because every query filters on `chunk_set_id`.
-10. **The set is sized by a power calculation, not by feel.** 90 questions, of
-    which 76 carry `recall@k` (negatives have no gold spans). That detects a
-    10.5 pp difference at power 0.8. The number is printed in the run header
-    and sits above the results table, never only in a limitations section.
+10. **The set is sized by a power calculation, not by feel.** 76 questions
+    carry `recall@k` — factual, comparative and contradiction — and that is
+    what detects a 10.5 pp difference at power 0.8. Negatives have no gold
+    spans and do not move it, so their count is set by what false-positive
+    rate needs instead: 30, where a perfect result reads as "0-12%" rather
+    than the "0-23%" that 14 would give. 106 questions in total. The
+    detectable difference is printed in the run header and sits above the
+    results table, never only in a limitations section.
 11. **The baseline must stay below 85% on `recall@5`.** Against the ceiling no
     configuration difference is measurable at any sample size. There is no
     lower bound: the pilot's best configuration reached 50%, which is further
@@ -61,7 +65,7 @@ generate answers. Full spec: `docs/spec.md`.
     zero. They are measured by false-positive rate instead, which is their
     whole purpose.
 14. **Per-`kind` results are descriptive, not comparative.** 18 contradiction
-    and 14 negative questions do not support "A beats B on contradictions".
+    and 30 negative questions do not support "A beats B on contradictions".
     Report a proportion with a Clopper-Pearson interval instead.
 
 ## Conventions

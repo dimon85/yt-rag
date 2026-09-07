@@ -407,6 +407,20 @@ rate, which is what they are for.
   return garbage when the answer is not in the corpus at all. Most RAG systems
   fail here and nobody measures it
 
+  It needs a threshold below which the system declines to answer, and the
+  threshold is the whole metric: a plain top-k retriever always returns k
+  results, so without an abstention rule the rate is 1 by construction. It also
+  needs enough negatives to say anything. On the first 32, a threshold keeping
+  90% of answerable questions admitted 94% of negatives under BM25 — the score
+  distributions overlap almost entirely. Under local embeddings the same
+  threshold admitted 72%, and at the median answerable score 6% against BM25's
+  22%.
+
+  That is the first real trade-off the project has found: the retriever that is
+  worse at recall (37.5% against 50.0%) is markedly better at knowing when to
+  stay quiet. Chosen on recall alone, the system would confidently answer three
+  out of four questions that have no answer.
+
 **Cost and speed:**
 - cost per 1000 queries (query embedding + rerank)
 - one-off indexing cost per configuration (stored in `chunk_sets`)
@@ -414,14 +428,42 @@ rate, which is what they are for.
 
 ---
 
-## Golden set: 90 questions
+## Golden set: 106 questions
 
 The most important and most tedious part. Without it the project is a demo.
 
 - **36 factual** — the answer sits in one specific place in one video
 - **22 comparative** — requires ≥2 different videos
 - **18 contradiction** — different authors say the opposite, both sides labelled
-- **14 negative** — the answer is not in the corpus, the correct result is empty
+- **30 negative** — the answer is not in the corpus, the correct result is empty
+
+The first three carry `recall@k`; 36 + 22 + 18 = 76 is the number the power
+calculation below is about. Negatives contribute nothing to it, so their count
+is set by what false-positive rate needs rather than by proportion.
+
+**Negatives carry two topics, not one.** `absent` says the answer is not in the
+corpus; the second says what the question is *about*. Of the 32 written, 19 have
+a real counterpart in the corpus — an MCP question about a tool that is absent,
+asked of a corpus holding 21 passages on MCP setup — and 13 do not. Those are
+different questions in everything but their label, and one false-positive rate
+averages them into a number that hides which half a system fails on.
+
+The split is assigned by reading the question, never from a retriever's score.
+Labelling by score would tune the set to the retriever it exists to test, which
+is the mistake the ceiling gate forbids in the other direction. The hardness is
+real: top-1 BM25 scores across the 32 range from 9.4 to 19.3.
+
+A proportional split would give 14, scaled from an earlier 40-question design —
+inherited arithmetic rather than a decision. The four kinds differ in both cost
+and value. Negatives are the cheapest question in the set: no transcript to
+read, no span to pin down, `gold: []`, and the four absent tools were verified
+at zero mentions across all 78 transcripts. They are also the only input to
+false-positive rate, one of the two metrics that distinguish this project.
+
+At 14 questions a perfect result — no false positives at all — reads as
+"somewhere between 0% and 23%" with a Clopper-Pearson interval. At 30 it reads
+as "0% to 12%". Roughly an extra hour of writing halves the interval on a
+headline number, which is the best trade available anywhere in the set.
 
 ### Why 90 and not 40
 
@@ -478,9 +520,25 @@ Levers also give control pairs for free — the same question shape with and
 without a superseding marker in the transcript ("it used to be 5 hours, now
 it's 50"). That is a finding for the README, not just a bigger set.
 
+**Wording is checked from both ends.** `pnpm golden` warns above 75% content-word
+overlap with the span a question points at, and below 15%. Neither is a verdict:
+a question about the context window has to say "context window", and one phrased
+in entirely different words can still be findable by meaning.
+
+The floor earned itself on the first two questions to trip it, at 0% and 10%.
+Neither was found by any retriever at any chunk size — not hard questions but
+unreachable ones. Both were rephrased into the 30-60% band and both are now
+found.
+
+The measure does not stem, and that showed up in the same place: one of those
+questions said "skills" and "replaced" where the passage said "skill" and
+"replacement", so part of its 10% was an artefact rather than a real gap. It
+reads lower than a person would judge, which is the safe direction for a warning
+but worth knowing when reading one.
+
 ### What 90 does not buy
 
-Per-`kind` comparisons. 18 contradiction and 14 negative questions cannot
+Per-`kind` comparisons. 18 contradiction and 30 negative questions cannot
 support "configuration A beats B on contradictions" — at that size the
 detectable difference is far larger than any real effect. Contradiction coverage
 and false-positive rate stay the metrics that distinguish this project, but they
@@ -511,7 +569,7 @@ comparison between configurations.
 - Manual check on 5 questions
 
 **Week 2 — metrics and ablation**
-- Golden set of 90 questions (see the power calculation above)
+- Golden set of 106 questions, 76 of them carrying recall (see above)
 - Wire up the existing JSONL runner and `report.mjs`
 - Metric code + **tests for the metric code**
 - 12 configurations × 3 runs

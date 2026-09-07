@@ -1,4 +1,4 @@
-# Version 2: 15-question adversarial pilot; golden_sha: 55ccf9d46818880e
+# Version 4: 48 questions (32 negatives, all four absent tools); golden_sha: d816fefcbd98d906
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -21,11 +21,11 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 3
+version: 4
 
 questions:
   - slug: cc-session-cap-tiers
-    text: Which paying customers got more headroom when the session cap changed?
+    text: Which subscription plans got a higher Claude Code limit?
     kind: factual
     topics: [ cost ]
     tools: [ claude-code ]
@@ -33,7 +33,10 @@ questions:
       - video: Q7n0PGbMW_U
         start_s: 292.48
         end_s: 310.4
-        note: names the three tiers; dated claim, contradicted later in the same video
+        note: Names the three tiers; dated claim, contradicted later in the same video.
+          Rephrased from a version at 0% content-word overlap that no retriever
+          found at any chunk size — that is not a hard question, it is an
+          unreachable one.
   - slug: cc-fast-mode-short-command
     text: What terminal command switches Claude Code into its faster mode?
     kind: factual
@@ -48,7 +51,7 @@ questions:
         note: Six-second command span. Do not widen merely to make overlap scoring
           easier.
   - slug: mcp-skill-replacement-tradeoff
-    text: What becomes harder to guarantee if MCP integrations are replaced entirely by skills and shell commands?
+    text: What guarantee is lost when a skill replaces an MCP integration?
     kind: factual
     topics:
       - migration
@@ -58,10 +61,14 @@ questions:
       - video: 3wglqgskzjQ
         start_s: 638.92
         end_s: 659.36
-        note: The passage qualifies the proposed replacement; retain the explanation of
-          the safeguard.
+        note: 'The passage qualifies the proposed replacement; retain the explanation of
+          the safeguard. Rephrased from a version at 10% overlap that no
+          retriever found. Part of that 10% was an artefact: the question said
+          "skills" and "replaced" where the passage says "skill" and
+          "replacement", and the overlap measure does not stem.'
   - slug: mcp-selective-eager-action
-    text: With lazy loading, how can one operation stay immediately available while the rest of a server stays hidden?
+    text: With lazy loading, how can one operation stay immediately available while
+      the rest of a server stays hidden?
     kind: factual
     topics:
       - mcp-setup
@@ -74,7 +81,8 @@ questions:
         end_s: 730.56
         note: Includes the server default and the per-action exception.
   - slug: codex-goal-completion-owner
-    text: Who decides that a Codex task is finished, and how does that differ from the way Hermes decides?
+    text: Who decides that a Codex task is finished, and how does that differ from
+      the way Hermes decides?
     kind: factual
     topics:
       - autonomy
@@ -87,7 +95,8 @@ questions:
         note: Both systems are compared in one contiguous passage, so this is factual
           rather than multi-video comparative.
   - slug: cc-sdk-commercial-auth
-    text: Which credential is recommended for building a commercial product on the Claude SDK?
+    text: Which credential is recommended for building a commercial product on the
+      Claude SDK?
     kind: factual
     topics:
       - migration
@@ -100,7 +109,8 @@ questions:
         end_s: 624.64
         note: 8.92-second span; historical description, not current policy guidance.
   - slug: agent-scheduled-action-failure
-    text: What went wrong with a scheduled morning email task that undermined trust in leaving an agent team unattended?
+    text: What went wrong with a scheduled morning email task that undermined trust
+      in leaving an agent team unattended?
     kind: factual
     topics:
       - reliability
@@ -115,7 +125,8 @@ questions:
         note: This concerns the agent-team workflow in the discussion, not a controlled
           attribution of the failure to either model.
   - slug: cc-model-specific-allowance
-    text: Why could someone have subscription limit left over and still be unable to keep using their preferred model?
+    text: Why could someone have subscription limit left over and still be unable to
+      keep using their preferred model?
     kind: factual
     topics:
       - cost
@@ -128,7 +139,8 @@ questions:
         note: The dollar amounts are illustrative; do not interpret them as measured
           billing figures.
   - slug: skills-versus-tool-discovery
-    text: Why do skills and MCP servers both avoid exposing every capability at startup?
+    text: Why do skills and MCP servers both avoid exposing every capability at
+      startup?
     kind: comparative
     topics:
       - context-window
@@ -145,7 +157,8 @@ questions:
         end_s: 696.64
         note: Read the discovery mechanism and deferred visibility behavior.
   - slug: goal-loop-versus-dynamic-workflows
-    text: What two different ways are described for driving a large task forward without spelling out every step?
+    text: What two different ways are described for driving a large task forward
+      without spelling out every step?
     kind: comparative
     topics:
       - autonomy
@@ -163,7 +176,8 @@ questions:
         end_s: 1234.2
         note: Covers outcome-driven orchestration and dynamically launched workers.
   - slug: cursor-subscription-value-tradeoff
-    text: What is the tradeoff between a Cursor subscription and the model providers' own plans, and what explains the difference in usage?
+    text: What is the tradeoff between a Cursor subscription and the model
+      providers' own plans, and what explains the difference in usage?
     kind: comparative
     topics:
       - cost
@@ -219,7 +233,8 @@ questions:
         note: Reports the earlier blanket exclusion. Both statements occur in the same
           recording; this is a policy reversal, not two simultaneous policies.
   - slug: tabnine-offline-activation
-    text: How do I activate Tabnine on a developer's computer that can't connect to the internet?
+    text: How do I activate Tabnine on a developer's computer that can't connect to
+      the internet?
     kind: negative
     topics:
       - absent
@@ -236,7 +251,8 @@ questions:
       - jetbrains-ai
     gold: []
   - slug: cc-limit-extension-boundary
-    text: Why did people feel they were getting less value from their plan for a while?
+    text: Why did people feel they were getting less value from their plan for a
+      while?
     kind: factual
     topics:
       - cost
@@ -251,11 +267,12 @@ questions:
           cumulative token count for this video crosses 1536 at 361.2s, which
           falls inside this span. Neither chunk contains the whole answer.
           Expected: the earlier chunk covers 6.6s of a 10.2s span, so
-          overlap/min = 0.64 and it is a hit; the later chunk covers 3.6s,
-          gives 0.36, and is not. Checks the coverage rule at the one place
-          chunking can silently lose an answer.
+          overlap/min = 0.64 and it is a hit; the later chunk covers 3.6s, gives
+          0.36, and is not. Checks the coverage rule at the one place chunking
+          can silently lose an answer.
   - slug: mcp-code-orchestration-savings
-    text: How does moving orchestration into code instead of tool calls cut token use?
+    text: How does moving orchestration into code instead of tool calls cut token
+      use?
     kind: factual
     topics:
       - context-window
@@ -303,3 +320,281 @@ questions:
       # the minimal-coverage case: this is the only video carrying a "the agent
       # failed while unattended" claim, so the contra side has exactly one
       # source and top-k has one chance to find it.
+
+      # ── negatives, batch 2 ──────────────────────────────────────────────────────
+      # All four tools in `tools_deliberately_absent` (corpus.yaml). Verified absent
+      # from the 78 cached transcripts: tabnine, jetbrains/intellij/pycharm,
+      # "amazon q"/"q developer"/codewhisperer and continue.dev return zero hits.
+      #
+      # Deliberately mixed in difficulty. The easy ones name a thing only the absent
+      # tool has, so nothing in the corpus is even lexically close. The hard ones are
+      # phrased in the corpus's own vocabulary — context window, rate limits, yolo
+      # mode, MCP servers, unit tests — so the nearest neighbour is always non-empty
+      # and a retriever that answers from the closest chunk will answer wrongly.
+      # That is the false positive these questions exist to catch, and a set of only
+      # easy negatives would report a clean abstention rate that means nothing.
+
+  - slug: tabnine-team-model-training
+    text: Which of my team's repositories does Tabnine use when it trains a model
+      only we can query?
+    kind: negative
+    topics: [ absent ]
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-self-hosted-gpu
+    text: What hardware does a self-hosted Tabnine deployment need to serve fifty
+      developers?
+    kind: negative
+    topics: [ absent ]
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-completion-latency
+    text: How long does Tabnine take to return an inline completion, and is it
+      slower on the free plan?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-seat-pricing-tier
+    text: What does one Tabnine seat cost per month, and which capabilities sit
+      behind the enterprise tier?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-unsupervised-diff-review
+    # Hard: "left to run", "review the diff" are autonomy keywords, so the
+    # nearest chunks are the agent-autonomy argument this set already annotates.
+    text: How much of Tabnine's agent work can be left to run before somebody has to
+      review the diff?
+    kind: negative
+    topics:
+      - absent
+      - autonomy
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-large-codebase-context
+    # Hard: phrased entirely in context-window vocabulary.
+    text: How large a codebase can Tabnine hold in context before it starts dropping
+      files?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-mcp-server-registration
+    # Hard: MCP setup is one of the best-covered topics in the corpus.
+    text: Where does the config that registers an MCP server with Tabnine have to
+      live?
+    kind: negative
+    topics:
+      - absent
+      - mcp-setup
+    tools: [ tabnine ]
+    gold: []
+
+  - slug: jetbrains-ai-quota-reset
+    text: When does the JetBrains AI credit quota reset, and what happens to work in
+      flight once it is spent?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-local-model
+    text: Can JetBrains AI Assistant answer from a model running on my own machine,
+      with no call leaving it?
+    kind: negative
+    topics: [ absent ]
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-license-bundle
+    text: Which JetBrains subscription includes the AI Assistant licence, and can
+      that licence be bought on its own?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-generated-unit-tests
+    # Hard: unit-test generation is a live topic in the corpus for other tools.
+    text: How dependable are the unit tests JetBrains AI Assistant writes — do they
+      compile on the first run?
+    kind: negative
+    topics:
+      - absent
+      - testing
+      - reliability
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-plugin-switch-reason
+    # Hard: migration phrasing ("switched from", "instead of") plus Copilot,
+    # which the corpus mentions 15 times without ever answering this.
+    text: Why would somebody switch away from their existing IDE plugin to JetBrains
+      AI Assistant instead?
+    kind: negative
+    topics:
+      - absent
+      - migration
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-monorepo-indexing
+    text: How long does JetBrains AI Assistant spend indexing a million-line
+      monorepo before it can answer anything about it?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-inline-prompt-shortcut
+    text: Which keyboard shortcut opens the inline AI prompt inside a JetBrains IDE?
+    kind: negative
+    topics: [ absent ]
+    tools: [ jetbrains-ai ]
+    gold: []
+
+  - slug: amazon-q-repository-permissions
+    text: Which permissions does a developer need granted before Amazon Q Developer
+      can read a private repository?
+    kind: negative
+    topics: [ absent ]
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-java-upgrade-agent
+    text: What does the Amazon Q Developer upgrade agent do when a Java version bump
+      breaks a dependency?
+    kind: negative
+    topics:
+      - absent
+      - reliability
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-free-tier-allowance
+    # Hard: cost/limits vocabulary, the most densely covered topic in the corpus.
+    text: How many agent requests a month does the Amazon Q Developer free tier
+      allow before the limit bites?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-cli-auto-accept
+    # Hard: "auto accept" and "without asking" are autonomy keywords.
+    text: Can the Amazon Q command line be told to apply its edits without asking
+      for confirmation each time?
+    kind: negative
+    topics:
+      - absent
+      - autonomy
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-project-context-files
+    # Hard: context-window vocabulary.
+    text: Which files does Amazon Q Developer pull in for project context, and how
+      do I keep it out of some of them?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-security-scan-rules
+    text: What classes of vulnerability does the Amazon Q code scan report, and can
+      its rules be tuned?
+    kind: negative
+    topics:
+      - absent
+      - testing
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-region-availability
+    # Hard by shared proper noun: 14 transcripts mention AWS, none mention Q.
+    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams
+      there use instead?
+    kind: negative
+    topics: [ absent ]
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-mcp-support
+    # Hard: the corpus explains MCP at length, just never for this tool.
+    text: Does Amazon Q Developer speak the Model Context Protocol, and how would a
+      server be added to it?
+    kind: negative
+    topics:
+      - absent
+      - mcp-setup
+    tools: [ amazon-q ]
+    gold: []
+
+  - slug: continue-self-hosted-endpoint
+    text: How do I aim Continue at a model endpoint I host myself rather than a
+      hosted provider?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-custom-slash-command
+    text: How is a custom slash command added to Continue, and where does its
+      definition have to sit?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-telemetry-opt-out
+    text: What does Continue send home by default, and how is that turned off?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-autocomplete-model-split
+    text: Does Continue use a different model for autocomplete than for chat, and
+      can the two be set apart?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-shared-team-assistant
+    text: How does a team share one Continue assistant configuration across its
+      members?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-token-burn-refactor
+    # Hard: "burn through tokens" is verbatim cost-topic vocabulary.
+    text: How fast does Continue burn through tokens on a long refactor next to a
+      flat-rate subscription tool?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ continue ]
+    gold: []
+  - slug: continue-agent-half-applied-edits
+    # Hard: reliability vocabulary, and the corpus is full of agents failing.
+    text: How often does Continue's agent mode leave a change half applied and
+      quietly stop?
+    kind: negative
+    topics:
+      - absent
+      - reliability
+    tools: [ continue ]
+    gold: []
+  - slug: continue-jetbrains-plugin-parity
+    text: Does the Continue plugin for JetBrains IDEs do everything the VS Code one
+      does?
+    kind: negative
+    topics:
+      - absent
+      - migration
+    tools: [ continue, jetbrains-ai ]
+    gold: []

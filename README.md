@@ -16,7 +16,7 @@ What can be said before it does — because it is a property of the question set
 not of the results — is how large a difference this set is able to see:
 
 ```
-90 questions, 76 carrying recall@k (negatives have no gold spans).
+106 questions, 76 carrying recall@k (negatives have no gold spans).
 Detectable difference: 10.5 pp (paired, power 0.8, α 0.05).
 ```
 
@@ -46,17 +46,24 @@ That makes two metrics possible that standard RAG benchmarks leave out:
 
 ## Design decisions worth knowing
 
-**The question set is sized by a power calculation, not by feel.** 90 questions,
-not the 40 originally planned. Differences between chunking strategies live in
-the 5–15 pp range; a 40-question set only detects 22.5 pp, so its most likely
-result is "every configuration looks the same" — a statement about the question
-set that is easy to mistake for a statement about chunking.
+**The question set is sized by a power calculation, not by feel.** 76 questions
+carry `recall@k`, not the 40 originally planned. Differences between chunking
+strategies live in the 5–15 pp range; a 40-question set only detects 22.5 pp, so
+its most likely result is "every configuration looks the same" — a statement
+about the question set that is easy to mistake for a statement about chunking.
 
-**The set is built so the baseline lands at 60–85% on recall@5.** Against a 93%
-baseline no configuration difference is visible at any sample size, because the
-metric is against its ceiling. If the set comes out too easy it gets harder
-questions — never fewer of the ones the baseline answered correctly, which would
-tune the set to the retriever using the retriever's own output.
+Negatives are counted separately, at 30 rather than a proportional 14. They have
+no gold spans, so they do not move that number at all; their count is set by what
+false-positive rate needs. They are also the cheapest question to write, and an
+extra hour there halves the confidence interval on a headline metric.
+
+**The baseline has to stay below 85% on recall@5.** Against a 93% baseline no
+configuration difference is visible at any sample size, because the metric is
+against its ceiling. There is no lower bound — an early pilot put the best
+configuration at 50%, which is further from the ceiling and so more sensitive,
+not less. If the set comes out too easy it gets harder questions, never fewer of
+the ones the baseline answered correctly, which would tune the set to the
+retriever using the retriever's own output.
 
 **One chunks table at `vector(1536)`, treated as a storage width rather than a
 model dimension.** Shorter vectors are zero-padded up to it, which preserves
@@ -97,7 +104,7 @@ refuses to mix them.
 - **One reranker.** No local cross-encoder exists for TypeScript, so reranking
   is measured against a single hosted API. The on/off comparison is valid; it is
   not a comparison between rerankers.
-- **Per-kind results are descriptive.** 18 contradiction and 14 negative
+- **Per-kind results are descriptive.** 18 contradiction and 30 negative
   questions cannot support "configuration A beats B on contradictions". Those
   metrics are reported as proportions with confidence intervals, not as
   comparisons.

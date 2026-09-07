@@ -165,13 +165,39 @@ export function validateStructure(set: GoldenSet, corpus: CorpusFacts): Issue[] 
   return issues;
 }
 
-/** The design the power calculation assumes. */
+/**
+ * The design the power calculation assumes.
+ *
+ * 76 of these carry `recall@k` — factual, comparative and contradiction. That
+ * is the number the 10.5 pp detectable difference comes from, and negatives do
+ * not change it however many there are.
+ *
+ * Negatives are 30 rather than the 14 a proportional split would give. The
+ * proportions were scaled from an earlier 40-question design, which is
+ * inherited arithmetic rather than a decision: the four kinds differ in what
+ * they cost and in what they buy. Negatives are the cheapest question in the
+ * set — no transcript to read, no span to pin down, `gold: []` — and they are
+ * the sole input to false-positive rate, one of the two metrics this project
+ * is built around.
+ *
+ * At 14, a perfect result reads as "somewhere between 0% and 23%". At 30 it
+ * reads as "0% to 12%". The extra hour of writing halves the interval on a
+ * headline number.
+ */
 export const TARGET: Record<Kind, number> = {
   factual: 36,
   comparative: 22,
   contradiction: 18,
-  negative: 14,
+  negative: 30,
 };
+
+/**
+ * The kinds that carry `recall@k`, and so the denominator the power
+ * calculation is about. Derived from TARGET rather than written out, because
+ * the two numbers have to move together: a report that prints a live numerator
+ * against a stale 76 is wrong in the direction that looks fine.
+ */
+export const RECALL_POOL_TARGET = TARGET.factual + TARGET.comparative + TARGET.contradiction;
 
 export function countByKind(set: GoldenSet): Record<Kind, number> {
   const out: Record<Kind, number> = { factual: 0, comparative: 0, contradiction: 0, negative: 0 };
