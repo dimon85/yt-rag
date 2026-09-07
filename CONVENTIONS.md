@@ -41,12 +41,26 @@ generate answers. Full spec: `docs/spec.md`.
     which 76 carry `recall@k` (negatives have no gold spans). That detects a
     10.5 pp difference at power 0.8. The number is printed in the run header
     and sits above the results table, never only in a limitations section.
-11. **The baseline must land at 60–85% on `recall@5`.** Against the ceiling no
-    configuration difference is measurable at any sample size. If the set comes
-    out too easy, it gets harder questions — never fewer of the ones the
-    baseline answered correctly. Selecting on the retriever's own output tunes
-    the set to the retriever.
-12. **Per-`kind` results are descriptive, not comparative.** 18 contradiction
+11. **The baseline must stay below 85% on `recall@5`.** Against the ceiling no
+    configuration difference is measurable at any sample size. There is no
+    lower bound: the pilot's best configuration reached 50%, which is further
+    from the ceiling and so more sensitive, not less. Suspect the pipeline
+    rather than the questions only below roughly 30%. If the set comes out too
+    easy, it gets harder questions — never fewer of the ones the baseline
+    answered correctly, which tunes the set to the retriever using the
+    retriever's own output.
+12. **A hit is `overlap / min(gold_length, chunk_length) >= 0.5`.** Written
+    down because otherwise it gets decided by accident, and the accident has a
+    direction: under "any overlap" a 1024-token chunk crosses more gold spans
+    than a 512-token one whatever its relevance, so the chunk-size comparison
+    is settled before anything is measured. The threshold is identical in every
+    configuration, and `packages/evals/src/hit.ts` is the only place it lives.
+13. **`recall@k` and MRR are computed over questions that have gold spans.**
+    Negatives have none, so they are not scored 0 and not counted in the
+    denominator — MRR over a question with no correct answer is undefined, not
+    zero. They are measured by false-positive rate instead, which is their
+    whole purpose.
+14. **Per-`kind` results are descriptive, not comparative.** 18 contradiction
     and 14 negative questions do not support "A beats B on contradictions".
     Report a proportion with a Clopper-Pearson interval instead.
 

@@ -1,7 +1,18 @@
 packages:
   - "packages/*"
 
-# vitest pulls esbuild, which has a postinstall script. Declared here rather
-# than approved interactively, so a fresh clone installs without a prompt.
+# Postinstall scripts, declared here rather than approved interactively so a
+# fresh clone installs without a prompt.
+#
+#   esbuild           pulled in by vitest
+#   onnxruntime-node  fetches its native binary; transformers.js runs the
+#                     embedding model locally through it
+#   protobufjs        onnxruntime dependency
+#   sharp             pulled in for image models this project never touches,
+#                     but refusing its build fails the install rather than
+#                     skipping it
 allowBuilds:
   esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true

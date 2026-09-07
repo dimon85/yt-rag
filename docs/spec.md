@@ -375,9 +375,30 @@ separate finding for the README.
 
 ## Metrics
 
+**What counts as a hit.** A gold annotation is an interval of a video and a
+retrieved chunk is another interval, so "found it" needs a rule. `is_hit` is
+true when `overlap / min(gold_length, chunk_length) >= 0.5`.
+
+The alternatives are not neutral. Under *any non-zero overlap*, a 1024-token
+chunk crosses more gold spans than a 512-token one regardless of relevance, and
+configuration #3 wins the chunk-size comparison before a single number is
+interpreted. Under *IoU >= 0.5*, a 90-second chunk that fully contains a
+10-second answer scores 0.11 and misses — the rule punishes a correct chunk for
+being long. Dividing by the shorter interval keeps both good cases: a chunk
+containing the whole answer, and a chunk sitting inside a three-minute one.
+
+It is not obviously the best rule. It is written down, tested, and identical
+across every configuration, which matters more than which rule it is.
+
 **Core:**
 - `recall@k` for k = 1, 3, 5, 10 — the headline number
 - `MRR` — how high the first correct span lands
+
+Both are computed over the questions that have gold spans. Negatives have none:
+MRR on a question with no correct answer is undefined rather than zero, and
+scoring it 0 would drag the headline number down by an amount that depends only
+on how many negatives the set contains. They are measured by false-positive
+rate, which is what they are for.
 
 **What tutorials leave out:**
 - **contradiction coverage** — for `contradiction` questions: did top-k include
@@ -426,8 +447,13 @@ in the table.
 
 Size is necessary but not sufficient. If the baseline configuration scores 93%
 on `recall@5`, no difference is visible at any n, because the metric is against
-its ceiling. **The set is built so the baseline lands at 60–85%**, and that is
+its ceiling. **The set is built so the baseline stays below 85%**, and that is
 verified before the full ablation runs, not after.
+
+Only the upper bound matters. An early pilot on 18 questions put the best
+configuration at 50% — further from the ceiling, and so more sensitive to a
+difference, not less. Below roughly 30% the thing to suspect is the pipeline
+rather than the questions.
 
 A set that comes out too easy gets harder questions, not a different metric.
 Difficulty is set by choosing the lever — multi-video answers, time-separated

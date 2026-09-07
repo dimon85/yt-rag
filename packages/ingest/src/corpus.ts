@@ -53,7 +53,14 @@ export const CorpusConfig = z
     tools: z.array(Tool).min(1),
     tools_deliberately_absent: z.array(z.object({ id: z.string(), name: z.string() })),
     channels: z.array(Channel).min(1),
-    topics: z.array(z.object({ id: z.string(), name: z.string() }).passthrough()),
+    topics: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        /** How the topic is spoken about, not what it is called. */
+        keywords: z.array(z.string()).default([]),
+      }).passthrough(),
+    ),
     selection_rules: z.array(z.string()),
     targets: z.object({
       total_videos: z.number().int().positive(),

@@ -1,0 +1,91 @@
+# Ablation configurations.
+#
+# Sizes here are not the ones the spec started with. A pilot run on 18
+# questions showed chunk size acting on the two retrievers in opposite
+# directions, and the interesting range sitting below 512 rather than above:
+#
+#   retriever   128 tokens   512 tokens
+#   bm25            43.8%       50.0%     longer documents hold more query terms
+#   local           37.5%       18.8%     mean pooling washes the answer out
+#
+# So "which chunking strategy is best" has no answer without naming the
+# retriever, and 1024 is unlikely to be where anything happens. 128 and 256
+# were added; 1024 is kept as the control that shows the trend continuing.
+
+version: 1
+
+defaults:
+  tokenizer: gpt-tokenizer      # invariant 2: one tokenizer for every config
+  top_k: 10
+  repeats: 3                    # retrieval should be deterministic — verified, not assumed
+
+chunking:
+  - id: fixed-128
+    strategy: fixed
+    params: { tokens: 128, overlap: 0 }
+    tests: baseline for the short end, where embeddings recover their signal
+
+  - id: fixed-256
+    strategy: fixed
+    params: { tokens: 256, overlap: 0 }
+    tests: midpoint of the range where the two retrievers cross over
+
+  - id: fixed-512
+    strategy: fixed
+    params: { tokens: 512, overlap: 0 }
+    tests: the original baseline, best for bm25 in the pilot
+
+  - id: fixed-512-ov128
+    strategy: fixed
+    params: { tokens: 512, overlap: 128 }
+    tests: whether overlap rescues answers split across a boundary
+
+  - id: fixed-1024-ov256
+    strategy: fixed
+    params: { tokens: 1024, overlap: 256 }
+    tests: longer context against precision; control for the size trend
+
+  - id: window-60
+    strategy: time_window
+    params: { seconds: 60, overlap_s: 0 }
+    tests: natural transcript boundaries instead of token counts
+
+  - id: window-90-ov30
+    strategy: time_window
+    params: { seconds: 90, overlap_s: 30 }
+    tests: same, with overlap
+
+retrieval:
+  - id: bm25
+    kind: lexical
+    tests: the floor. Questions are paraphrased, so this works against wording
+      it has never seen
+
+  - id: vector
+    kind: dense
+    tests: whether semantics beat term matching on transcripts at all
+
+  - id: hybrid
+    kind: lexical+dense
+    params: { fusion: rrf }
+    tests: whether the two find different things
+
+# MMR is here as a configuration to measure, not as a fix.
+#
+# It was added to move contradiction coverage and did not: at lambda 0.9, 0.7
+# and 0.5 coverage stayed 0/2 at k=5 while recall@5 fell from 50.0% to 43.8%.
+# The reason is structural rather than a matter of tuning. MMR diversifies by
+# surface dissimilarity, and two passages arguing opposite sides of one
+# question share their topic vocabulary — so it reads them as redundant and
+# avoids taking both. It pulls against exactly the metric it was meant to help.
+#
+# Kept because it is a real retrieval configuration worth a row in the table,
+# and because a measured negative result belongs in the README.
+reranking:
+  - id: none
+  - id: mmr-0.7
+    kind: mmr
+    params: { lambda: 0.7 }
+  - id: cohere-rerank
+    kind: api
+    note: the only cross-encoder available in TypeScript; see docs/spec.md

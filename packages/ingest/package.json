@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "discover": "node --experimental-strip-types src/discover.ts",
-    "ingest": "node --experimental-strip-types src/ingest.ts"
+    "ingest": "node --experimental-strip-types src/ingest.ts",
+    "grep": "node --experimental-strip-types src/search.ts"
   },
   "dependencies": {
+    "gpt-tokenizer": "^4.0.0",
     "yaml": "^2.6.0",
     "youtube-transcript-plus": "^2.0.1",
     "zod": "^3.24.0"

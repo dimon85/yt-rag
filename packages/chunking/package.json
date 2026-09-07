@@ -1,0 +1,8 @@
+{
+  "name": "@yt-rag/chunking",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "gpt-tokenizer": "^3.0.1"
+  }
+}
