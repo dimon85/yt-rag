@@ -9,8 +9,8 @@ import { join } from "node:path";
 import { CACHE_DIR, loadCorpus } from "../../ingest/src/corpus.ts";
 import type { Segment } from "../../ingest/src/text.ts";
 import {
-  countByKind, goldenSha, lexicalOverlap, loadGolden, OVERLAP_WARN, TARGET,
-  validateStructure, type Issue, type Kind,
+  countByKind, goldenSha, lexicalOverlap, loadGolden, OVERLAP_FLOOR, OVERLAP_WARN,
+  TARGET, validateStructure, type Issue, type Kind,
 } from "./golden.ts";
 
 const corpus = loadCorpus();
@@ -38,6 +38,22 @@ const spanText = (video: string, start_s: number, end_s: number): string => {
 };
 
 for (const q of set.questions) {
+  // The floor applies to the question's best span: a comparative question is
+  // fine if it connects to one of its sources, and demanding overlap with
+  // every one of them would push it back towards restating the passage.
+  const overlaps = q.gold
+    .filter((g) => durations.has(g.video))
+    .map((g) => lexicalOverlap(q.text, spanText(g.video, g.start_s, g.end_s)));
+  if (overlaps.length > 0 && Math.max(...overlaps) < OVERLAP_FLOOR) {
+    issues.push({
+      level: "warning",
+      slug: q.slug,
+      message:
+        `only ${Math.round(Math.max(...overlaps) * 100)}% of the question's words appear in ` +
+        `any span it points at — check it is answerable at all, not just hard`,
+    });
+  }
+
   for (const g of q.gold) {
     if (!durations.has(g.video)) continue;
     const overlap = lexicalOverlap(q.text, spanText(g.video, g.start_s, g.end_s));

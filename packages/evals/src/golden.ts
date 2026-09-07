@@ -224,3 +224,22 @@ function contentWords(text: string): Set<string> {
 
 /** Above this, the question is mostly the passage restated. */
 export const OVERLAP_WARN = 0.75;
+
+/**
+ * Below this, the question and its own answer share almost no content words.
+ *
+ * Set deliberately low, and not at the number the data suggests. A pilot run
+ * put mean recall@5 at 0.28 for questions under 30% overlap against 0.79 above
+ * it — but that was measured with BM25, which *is* term matching, so the
+ * relationship is partly tautological, and choosing a threshold from a
+ * retriever's output is tuning the question set to the retriever, which
+ * invariant 11 forbids.
+ *
+ * What stands on its own is the weaker claim: a question sharing under 15% of
+ * its content words with the passage it points at may be unanswerable by any
+ * system, and that is a property of the question. Worth a reread, not a
+ * rejection — a question can legitimately be phrased in entirely different
+ * words and still be findable by meaning. That is exactly what the vector
+ * configurations are there to test.
+ */
+export const OVERLAP_FLOOR = 0.15;
