@@ -56,19 +56,11 @@ for (const q of set.questions) {
     });
   }
 
-  for (const g of q.gold) {
-    if (!durations.has(g.video)) continue;
-    const overlap = lexicalOverlap(q.text, spanText(g.video, g.start_s, g.end_s));
-    if (overlap > OVERLAP_WARN) {
-      issues.push({
-        level: "warning",
-        slug: q.slug,
-        message:
-          `${Math.round(overlap * 100)}% of the question's words appear in the span it points at ` +
-          `— term matching alone will find it, so it cannot separate one retriever from another`,
-      });
-    }
-  }
+  // No upper warning. Overlap is a fraction of the question's words, so a short
+  // natural question scores high for being short — and short natural questions
+  // are what people type. Whether term matching alone finds a question is
+  // measured directly instead, and reported as a cut rather than used as a
+  // filter. See OVERLAP_WARN in golden.ts.
 }
 
 // ─── report ──────────────────────────────────────────────────────────────────

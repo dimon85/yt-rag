@@ -27,7 +27,8 @@ import { buildIndex, search, tokenize } from "../../retrieve/src/bm25.ts";
 import { jaccard, mmrRerank } from "../../retrieve/src/mmr.ts";
 import { goldenSha, loadGolden, type Question } from "./golden.ts";
 import {
-  contradictionCoverage, falsePositiveRate, mrr, recallAtK, type Retrieved,
+  contradictionCoverage, falsePositiveRate, lexicallyTrivial, mrr, recallAtK,
+  type Retrieved,
 } from "./metrics.ts";
 
 const HELP = `
@@ -171,6 +172,23 @@ if (which === "local" || which === "both") {
 
 // ─── measure ─────────────────────────────────────────────────────────────────
 
+// Which questions term matching alone already answers. Computed once, from a
+// plain BM25 run over the same chunks, and used only to split the report — a
+// question every configuration gets right cannot separate them, and averaging
+// it in hides how much the harder half differs.
+const lexIndex = buildIndex(chunks.map((c, i) => ({ id: i, text: c.text })));
+const trivial = new Map<string, boolean>();
+for (const q of golden.questions) {
+  if (q.gold.length === 0) continue;
+  const ranked = search(lexIndex, q.text, 1).map(({ id, score }) => ({ ...chunks[id]!, score }));
+  trivial.set(q.slug, lexicallyTrivial(q.gold, ranked) ?? false);
+}
+const nTrivial = [...trivial.values()].filter(Boolean).length;
+console.log(
+  `lexically trivial: ${nTrivial} of ${trivial.size} questions are answered by ` +
+  `term matching at rank 1\n`,
+);
+
 const KS = [1, 3, 5, 10];
 const withGold = golden.questions.filter((q) => q.gold.length > 0);
 const negatives = golden.questions.filter((q) => q.gold.length === 0);
@@ -197,6 +215,18 @@ for (const r of retrievers) {
     .filter(({ q }) => q.gold.length > 0)
     .map(({ q, ranked }) => mrr(q.gold, ranked)!);
   console.log(`  MRR ${(mrrs.reduce((a, b) => a + b, 0) / mrrs.length).toFixed(3)}`);
+
+  // The split that matters. Every configuration gets the trivial questions, so
+  // an average over both halves understates the difference between them.
+  for (const [label, want] of [["term-matchable", true], ["needs more", false]] as const) {
+    const subset = results.filter(({ q }) => q.gold.length > 0 && trivial.get(q.slug) === want);
+    if (subset.length === 0) continue;
+    const r5 = subset.map(({ q, ranked }) => recallAtK(q.gold, ranked, 5)!);
+    console.log(
+      `  recall@5 on ${label.padEnd(14)} ${((r5.reduce((a, b) => a + b, 0) / r5.length) * 100).toFixed(1)}%` +
+      `   (n=${subset.length})`,
+    );
+  }
 
   // Reported at both cut-offs. A single number at k=5 shows zero where the
   // truth is "the second side was two ranks lower", and those are different

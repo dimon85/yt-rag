@@ -248,7 +248,26 @@ function contentWords(text: string): Set<string> {
   );
 }
 
-/** Above this, the question is mostly the passage restated. */
+/**
+ * Overlap is no longer a filter, and this constant is kept only so the number
+ * can be printed alongside a question rather than acted on.
+ *
+ * It was a proxy for the thing actually worth knowing — whether a question can
+ * be found by term matching alone — and it was a bad one, because it is a
+ * fraction of the *question's* words. A four-word question with all four words
+ * in the passage scores 100%: "can i control claude code from my phone" is
+ * exactly what a person types into a search box, and rejecting it for being
+ * short would have been a defect in the measure, not the question.
+ *
+ * The thing itself is measurable directly. `lexicallyTrivial` in metrics.ts
+ * asks whether BM25 puts the gold span first, and results are reported split
+ * by that. Which turns a filter into a cut: how much better is retrieval than
+ * grep, on the questions where grep does not work.
+ *
+ * Using a retriever to *select* questions would tune the set to the retriever,
+ * which invariant 11 forbids. Using one to *label* questions for the report
+ * discards nothing and is the point.
+ */
 export const OVERLAP_WARN = 0.75;
 
 /**
