@@ -21,7 +21,7 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 5
+version: 6
 
 questions:
   - slug: cc-session-cap-tiers
@@ -603,3 +603,152 @@ questions:
       - migration
     tools: [ continue, jetbrains-ai ]
     gold: []
+  - slug: cursor-antigravity-rivalry
+    text: is google antigravity a real competitor to cursor now
+    kind: factual
+    topics:
+      - migration
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: mAwJYUJib1I
+        start_s: 567.16
+        end_s: 604.72
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-ultra-run-length
+    text: how long can claude code ultra mode run before stopping
+    kind: factual
+    topics:
+      - autonomy
+      - cost
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 8jDXI4_rJOE
+        start_s: 1406.52
+        end_s: 1441.88
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-terminal-multiplexer
+    text: best terminal app for running multiple claude code agents at once
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 567.36
+        end_s: 602.28
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-usage-streak
+    text: how many days in a row has anyone used codex and how many tokens
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 806.56
+        end_s: 843.28
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-phone-remote-pairing
+    text: how do you pair your phone with a claude code session
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 1316.04
+        end_s: 1351.72
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: harness-subscription-instead-of-api
+    text: can you use your own anthropic or codex subscription with this multi agent
+      harness instead of api credits
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: HAkSUBdsd6M
+        start_s: 807.72
+        end_s: 842.04
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: opus-sonnet-harness-oneshot
+    text: did opus 4.6 fail a coding task that sonnet 4.6 with the harness completed
+    kind: factual
+    topics:
+      - reliability
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: HAkSUBdsd6M
+        start_s: 986.96
+        end_s: 1022.24
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: mcp-doc-cache-local
+    text: does this retrieval setup save scraped docs locally so it doesn't refetch
+      them
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - cursor
+      - mcp
+    source: generated
+    gold:
+      - video: KHDMoQ2Sp2s
+        start_s: 747.56
+        end_s: 783.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: mcp-programmatic-tool-calling
+    text: does writing code to call mcp tools reduce context usage compared to
+      calling tools one by one
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 327.36
+        end_s: 362.76
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-standing-goal-ios-run
+    text: how long did codex run autonomously building an ios app
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 0
+        end_s: 33.2
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.

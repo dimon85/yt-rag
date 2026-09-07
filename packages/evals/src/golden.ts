@@ -36,6 +36,17 @@ export const Question = z.object({
   kind: Kind,
   topics: z.array(z.string()).default([]),
   tools: z.array(z.string()).default([]),
+  /**
+   * Who wrote the wording. `generated` means a model drafted it from a neutral
+   * one-line statement of the claim, never from the passage itself, and a
+   * person then confirmed the answer is in the span.
+   *
+   * Recorded because the difference is measurable and worth measuring: if
+   * generated questions score systematically higher, the set is easier than it
+   * looks and the report should say so. Without the label that comparison is
+   * impossible after the fact.
+   */
+  source: z.enum(["hand", "generated"]).default("hand"),
   gold: z.array(Gold).default([]),
 });
 export type Question = z.infer<typeof Question>;
@@ -67,6 +78,8 @@ export function goldenSha(set: GoldenSet): string {
       slug: q.slug,
       text: q.text.trim().replace(/\s+/g, " "),
       kind: q.kind,
+      // `source` is deliberately absent: who typed the words does not change
+      // what is being measured, and relabelling one should not invalidate a run.
       gold: [...q.gold]
         .map((g) => ({
           video: g.video,

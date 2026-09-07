@@ -219,3 +219,34 @@ export function stratify<T extends { score: Score }>(rows: T[], n: number, bands
   }
   return out;
 }
+
+/**
+ * Sponsor reads and calls to action.
+ *
+ * They score well — a sponsor segment is dense with product names and numbers —
+ * and they are useless as gold spans, because the claim is about a product
+ * outside the corpus axis. One reached a generated batch: "get started with
+ * SERP API using 250 free credits", perfectly answerable and about none of the
+ * four tools being measured.
+ *
+ * The word "sponsor" alone does not catch them. That one said "clicking the
+ * link in the description" and "scan the QR code".
+ */
+export const AD_PATTERN =
+  /sponsor|word from|link in the description|link below|scan the qr|use my code|discount code|free credits|sign up (?:for|using)/i;
+
+/**
+ * Whether a window overlaps anything already chosen.
+ *
+ * `tile` partitions by time, but a window's reported span comes from the
+ * segments it contains, and captions in this corpus overlap in time — 13,232
+ * of the segment pairs do. Two tiles can therefore report spans that touch.
+ * Two adjacent picks produced near-duplicate questions in the first batch,
+ * eight seconds apart and both about the same claim.
+ */
+export function clashes(
+  candidate: { start_s: number; end_s: number },
+  taken: { start_s: number; end_s: number }[],
+): boolean {
+  return taken.some((t) => t.end_s > candidate.start_s && t.start_s < candidate.end_s);
+}

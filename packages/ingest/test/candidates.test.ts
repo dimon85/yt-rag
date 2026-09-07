@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
-  dedupeOverlapping, score, stratify, tile, windows, type Scored, type Window,
+  AD_PATTERN, clashes, dedupeOverlapping, score, stratify, tile, windows,
+  type Scored, type Window,
 } from "../src/candidates.ts";
 import type { Segment } from "../src/text.ts";
 
@@ -138,5 +139,44 @@ describe("stratify", () => {
 
   test("returns at most n", () => {
     expect(stratify(rows, 8).length).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("AD_PATTERN", () => {
+  test("catches the phrasings that actually appear", () => {
+    // The one that reached a generated batch said neither "sponsor" nor "ad".
+    for (const t of [
+      "get started with SERP API using 250 free credits",
+      "clicking the link in the description",
+      "just scan the QR code that you see on the screen",
+      "here's a word from our sponsor",
+    ]) {
+      expect(AD_PATTERN.test(t)).toBe(true);
+    }
+  });
+
+  test("leaves ordinary claims alone", () => {
+    for (const t of [
+      "the rate limit was doubled for paid plans",
+      "it ran for six hours building an iOS app",
+    ]) {
+      expect(AD_PATTERN.test(t)).toBe(false);
+    }
+  });
+});
+
+describe("clashes", () => {
+  test("adjacent tiles can still overlap, because captions do", () => {
+    // Two picks eight seconds apart produced near-duplicate questions in the
+    // first generated batch.
+    expect(clashes({ start_s: 1316, end_s: 1351 }, [{ start_s: 1287, end_s: 1324 }])).toBe(true);
+  });
+
+  test("touching at a point is not a clash", () => {
+    expect(clashes({ start_s: 30, end_s: 60 }, [{ start_s: 0, end_s: 30 }])).toBe(false);
+  });
+
+  test("nothing taken means no clash", () => {
+    expect(clashes({ start_s: 0, end_s: 30 }, [])).toBe(false);
   });
 });
