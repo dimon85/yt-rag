@@ -1,3 +1,4 @@
+# Version 2: 15-question adversarial pilot; golden_sha: 55ccf9d46818880e
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -17,33 +18,288 @@
 #
 #   factual        exactly one gold span — the answer sits in one place
 #   comparative    spans from 2+ different videos
-#   contradiction  both a pro and a contra span, from different videos
+#   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-# Example (delete when the first real question lands):
-#
-#   - slug: cc-session-limit
-#     text: How long can an agent run before it has to be reset?
-#     kind: factual
-#     topics: [context-window]
-#     tools: [claude-code]
-#     gold:
-#       - video: EHlqRx0r4BI
-#         start_s: 680.96
-#         end_s: 698.92
-#         note: gives the default and recommends changing it
-
-version: 1
+version: 3
 
 questions:
   - slug: cc-session-cap-tiers
     text: Which paying customers got more headroom when the session cap changed?
     kind: factual
-    topics: [cost]
-    tools: [claude-code]
+    topics: [ cost ]
+    tools: [ claude-code ]
     gold:
       - video: Q7n0PGbMW_U
         start_s: 292.48
         end_s: 310.4
         note: names the three tiers; dated claim, contradicted later in the same video
-
+  - slug: cc-fast-mode-short-command
+    text: What terminal command switches Claude Code into its faster mode?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+    gold:
+      - video: t3uBGhpii6w
+        start_s: 100.56
+        end_s: 106.56
+        note: Six-second command span. Do not widen merely to make overlap scoring
+          easier.
+  - slug: mcp-skill-replacement-tradeoff
+    text: What becomes harder to guarantee if MCP integrations are replaced entirely by skills and shell commands?
+    kind: factual
+    topics:
+      - migration
+    tools:
+      - mcp
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 638.92
+        end_s: 659.36
+        note: The passage qualifies the proposed replacement; retain the explanation of
+          the safeguard.
+  - slug: mcp-selective-eager-action
+    text: With lazy loading, how can one operation stay immediately available while the rest of a server stays hidden?
+    kind: factual
+    topics:
+      - mcp-setup
+      - context-window
+    tools:
+      - mcp
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 704
+        end_s: 730.56
+        note: Includes the server default and the per-action exception.
+  - slug: codex-goal-completion-owner
+    text: Who decides that a Codex task is finished, and how does that differ from the way Hermes decides?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    gold:
+      - video: rIs802-bXDY
+        start_s: 234.68
+        end_s: 263.92
+        note: Both systems are compared in one contiguous passage, so this is factual
+          rather than multi-video comparative.
+  - slug: cc-sdk-commercial-auth
+    text: Which credential is recommended for building a commercial product on the Claude SDK?
+    kind: factual
+    topics:
+      - migration
+      - cost
+    tools:
+      - claude-code
+    gold:
+      - video: 8IDzBRRFnQU
+        start_s: 615.72
+        end_s: 624.64
+        note: 8.92-second span; historical description, not current policy guidance.
+  - slug: agent-scheduled-action-failure
+    text: What went wrong with a scheduled morning email task that undermined trust in leaving an agent team unattended?
+    kind: factual
+    topics:
+      - reliability
+      - autonomy
+    tools:
+      - codex
+      - claude-code
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 2286.76
+        end_s: 2327.64
+        note: This concerns the agent-team workflow in the discussion, not a controlled
+          attribution of the failure to either model.
+  - slug: cc-model-specific-allowance
+    text: Why could someone have subscription limit left over and still be unable to keep using their preferred model?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+    gold:
+      - video: Q7n0PGbMW_U
+        start_s: 382.48
+        end_s: 421.48
+        note: The dollar amounts are illustrative; do not interpret them as measured
+          billing figures.
+  - slug: skills-versus-tool-discovery
+    text: Why do skills and MCP servers both avoid exposing every capability at startup?
+    kind: comparative
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    gold:
+      - video: -iTNOaCmLcw
+        start_s: 247.2
+        end_s: 304.64
+        note: Read the initial description and later instruction-loading stages.
+      - video: 3wglqgskzjQ
+        start_s: 657.48
+        end_s: 696.64
+        note: Read the discovery mechanism and deferred visibility behavior.
+  - slug: goal-loop-versus-dynamic-workflows
+    text: What two different ways are described for driving a large task forward without spelling out every step?
+    kind: comparative
+    topics:
+      - autonomy
+    tools:
+      - codex
+      - claude-code
+    gold:
+      - video: rIs802-bXDY
+        start_s: 182.64
+        end_s: 234.68
+        note: Covers continuation, saved goal context, and the unfinished-goal feedback
+          loop.
+      - video: 8jDXI4_rJOE
+        start_s: 1205.88
+        end_s: 1234.2
+        note: Covers outcome-driven orchestration and dynamically launched workers.
+  - slug: cursor-subscription-value-tradeoff
+    text: What is the tradeoff between a Cursor subscription and the model providers' own plans, and what explains the difference in usage?
+    kind: comparative
+    topics:
+      - cost
+    tools:
+      - cursor
+      - codex
+      - claude-code
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 309.92
+        end_s: 327.44
+        note: Retain the model-choice versus usage distinction.
+      - video: jKCjLzjmiaA
+        start_s: 442.16
+        end_s: 467.84
+        note: Theo labels the discount estimate as a guess; the question must not
+          promote it to a measured fact.
+  - slug: context-budget-two-sources
+    text: What two approaches keep unnecessary material out of an agent's context?
+    kind: comparative
+    topics:
+      - context-window
+    tools:
+      - mcp
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 200.96
+        end_s: 285.96
+        note: Intermediate-data problem and code-based alternative.
+      - video: -iTNOaCmLcw
+        start_s: 229.04
+        end_s: 274.88
+        note: Unused tool definitions and progressive disclosure.
+  - slug: cc-third-party-policy-reversal
+    text: Can a Claude subscription be used through third-party agent tools, or not?
+    kind: contradiction
+    topics:
+      - migration
+      - cost
+    tools:
+      - claude-code
+    gold:
+      - video: 8IDzBRRFnQU
+        start_s: 547.24
+        end_s: 563.04
+        side: pro
+        note: Reports later permission for CLI-style usage, qualified by the production
+          API recommendation; not unlimited third-party permission.
+      - video: 8IDzBRRFnQU
+        start_s: 474.84
+        end_s: 494.56
+        side: contra
+        note: Reports the earlier blanket exclusion. Both statements occur in the same
+          recording; this is a policy reversal, not two simultaneous policies.
+  - slug: tabnine-offline-activation
+    text: How do I activate Tabnine on a developer's computer that can't connect to the internet?
+    kind: negative
+    topics:
+      - absent
+    tools:
+      - tabnine
+    gold: []
+  - slug: jetbrains-ai-data-retention
+    text: How long does JetBrains AI Assistant retain a submitted code snippet, and
+      where can an administrator change that retention period?
+    kind: negative
+    topics:
+      - absent
+    tools:
+      - jetbrains-ai
+    gold: []
+  - slug: cc-limit-extension-boundary
+    text: Why did people feel they were getting less value from their plan for a while?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+    gold:
+      - video: Q7n0PGbMW_U
+        start_s: 354.6
+        end_s: 364.84
+        note: >
+          PILOT: straddles a chunk boundary. Under fixed-512-overlap-0 the
+          cumulative token count for this video crosses 1536 at 361.2s, which
+          falls inside this span. Neither chunk contains the whole answer.
+          Expected: the earlier chunk covers 6.6s of a 10.2s span, so
+          overlap/min = 0.64 and it is a hit; the later chunk covers 3.6s,
+          gives 0.36, and is not. Checks the coverage rule at the one place
+          chunking can silently lose an answer.
+  - slug: mcp-code-orchestration-savings
+    text: How does moving orchestration into code instead of tool calls cut token use?
+    kind: factual
+    topics:
+      - context-window
+      - migration
+    tools:
+      - mcp
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 477.76
+        end_s: 722.64
+        note: >
+          PILOT: 245-second span, the reverse case of the short ones. Every
+          chunk here sits entirely inside the gold span, so coverage is 1 for
+          each. Checks that a correct chunk is not punished for being shorter
+          than the answer — the case IoU would fail.
+  - slug: agent-autonomy-dispute
+    text: Is it safe to let a coding agent run without watching it?
+    kind: contradiction
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - claude-code
+      - codex
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 1538.72
+        end_s: 1562.88
+        side: pro
+        note: >
+          Aliases every agent to launch with dangerous permissions by default
+          and calls typing the flag each time inefficient. Note the same video
+          later qualifies this ("do not ever use yolo mode without guardrails"),
+          which is why the span is pinned to the operational claim.
+      - video: P1KpxzLVg7c
+        start_s: 2283
+        end_s: 2334.04
+        side: contra
+        note: >
+          "I just don't have trust in my AI agent team... sometimes it doesn't
+          fire off." A scheduled task that silently failed to run.
+      # PILOT: the cross-video contradiction case, which nothing else covers.
+      # Both channels are stance=hype, so the disagreement is genuine rather
+      # than an artefact of how the corpus was assembled. It also happens to be
+      # the minimal-coverage case: this is the only video carrying a "the agent
+      # failed while unattended" claim, so the contra side has exactly one
+      # source and top-k has one chance to find it.
