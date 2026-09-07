@@ -447,8 +447,13 @@ in the table.
 
 Size is necessary but not sufficient. If the baseline configuration scores 93%
 on `recall@5`, no difference is visible at any n, because the metric is against
-its ceiling. **The set is built so the baseline lands at 60–85%**, and that is
+its ceiling. **The set is built so the baseline stays below 85%**, and that is
 verified before the full ablation runs, not after.
+
+Only the upper bound matters. An early pilot on 18 questions put the best
+configuration at 50% — further from the ceiling, and so more sensitive to a
+difference, not less. Below roughly 30% the thing to suspect is the pipeline
+rather than the questions.
 
 A set that comes out too easy gets harder questions, not a different metric.
 Difficulty is set by choosing the lever — multi-video answers, time-separated
