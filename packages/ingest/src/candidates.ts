@@ -160,3 +160,62 @@ export function dedupeOverlapping(scored: Scored[]): Scored[] {
   }
   return kept;
 }
+
+/**
+ * Partitions a transcript into non-overlapping windows.
+ *
+ * Distinct from `windows`, which steps by half its width so a claim on a
+ * boundary survives whole somewhere. That overlap is right for a reading list
+ * and wrong for sourcing gold spans, and the difference is not small: greedy
+ * non-overlap selection over half-stepped windows collapses 770 candidates to
+ * 52, drawn from 21 of 78 videos, because one strong window kills its
+ * neighbours. Tiling the same corpus at the same score floor gives 139 spans
+ * across 39 videos.
+ *
+ * A golden set sourced from the first number would sit almost entirely in a
+ * quarter of the corpus, and every gold span would be the densest passage in
+ * its neighbourhood — which is to say the easiest to retrieve. Recall would
+ * come out high for reasons that have nothing to do with the retriever.
+ */
+export function tile(segments: Segment[], widthS = 30): Window[] {
+  if (segments.length === 0) return [];
+  const out: Window[] = [];
+  const last = segments[segments.length - 1]!.end_s;
+
+  for (let from = segments[0]!.start_s; from < last; from += widthS) {
+    const to = from + widthS;
+    const inside = segments.filter((s) => s.end_s > from && s.start_s < to);
+    if (inside.length === 0) continue;
+    out.push({
+      segments: inside,
+      start_s: inside[0]!.start_s,
+      end_s: Math.max(...inside.map((s) => s.end_s)),
+      text: inside.map((s) => s.text).join(" "),
+    });
+  }
+  return out;
+}
+
+/**
+ * Samples evenly across score bands rather than taking the top n.
+ *
+ * Taking the top would fill the golden set with the corpus's densest passages,
+ * which are its most findable ones. Stratifying keeps harder spans in, so
+ * recall measures the retriever instead of the selection.
+ */
+export function stratify<T extends { score: Score }>(rows: T[], n: number, bands = 4): T[] {
+  if (rows.length <= n) return [...rows];
+  const sorted = [...rows].sort((a, b) => b.score.total - a.score.total);
+  const perBand = Math.ceil(n / bands);
+  const size = Math.ceil(sorted.length / bands);
+  const out: T[] = [];
+
+  for (let b = 0; b < bands && out.length < n; b++) {
+    const slice = sorted.slice(b * size, (b + 1) * size);
+    // Even spacing inside the band, so a band is not represented by its top
+    // few either.
+    const step = Math.max(1, Math.floor(slice.length / perBand));
+    for (let i = 0; i < slice.length && out.length < n; i += step) out.push(slice[i]!);
+  }
+  return out;
+}
