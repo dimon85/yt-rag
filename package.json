@@ -13,7 +13,8 @@
     "grep": "node --experimental-strip-types packages/ingest/src/search.ts",
     "golden": "node --experimental-strip-types packages/evals/src/check.ts",
     "candidates": "node --experimental-strip-types packages/ingest/src/candidates-cli.ts",
-    "boundaries": "node --experimental-strip-types packages/ingest/src/boundaries.ts"
+    "boundaries": "node --experimental-strip-types packages/ingest/src/boundaries.ts",
+    "ceiling": "node --experimental-strip-types packages/evals/src/ceiling.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
