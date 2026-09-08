@@ -21,7 +21,7 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 8
+version: 9
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1007,3 +1007,88 @@ questions:
         note: "IndyDevDan (practical): Claude Code has minimal built-in customization
           (requiring a skill or MCP for things PI supports natively, like custom
           key bindings), whereas PI offers far more customization options."
+  - slug: codex-chatgpt-subscription-login
+    text: Can I use my ChatGPT subscription to log into Codex instead of making a
+      new account?
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: EHlqRx0r4BI
+        start_s: 508.64
+        end_s: 544.52
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-phone-controls-computer
+    text: Can Codex control my own computer remotely from my phone?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 446.32
+        end_s: 482.32
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-notion-plugin-browser
+    text: Can Codex open a Notion doc in its own browser?
+    kind: factual
+    topics:
+      - mcp-setup
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 499.36
+        end_s: 544.88
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: skills-versus-mcp-context-loading
+    text: How are skills different from MCP servers or global rules for giving an
+      agent context?
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: -iTNOaCmLcw
+        start_s: 57.6
+        end_s: 93.12
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-subagent-parallel-ui-variants
+    text: How can I chain Claude Code sub-agents into a setup, like a meta-agent
+      using parallel task commands and the new SDK, that automatically spins up
+      multiple agents to generate several UI variations at once?
+    kind: comparative
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 7B2HJr0Y68g
+        start_s: 0.32
+        end_s: 36.32
+        note: "IndyDevDan: Claude Code sub-agents can be chained into specialized
+          workflows, such as a 'meta agent' that builds other agents
+          automatically."
+      - video: YJ3Z9XhlF5w
+        start_s: 0.88
+        end_s: 34.16
+        note: "AI Jason: By using hidden Claude Code features like parallel task
+          commands and a new SDK, the speaker turned Claude Code into a 'cloud
+          designer' that spins up multiple sub-agents to generate several UI
+          variations at once."
