@@ -19,22 +19,29 @@ version: 1
 tools:
   - id: claude-code
     name: Claude Code
-    aliases: [ "claude code", "cc", "anthropic cli", "claude cli", "claude agent" ]
+    # "cloud code" is not a typo. Auto-captions mishear "Claude Code" that way
+    # about as often as they get it right — 180 mentions against 178 — and
+    # without it half of this tool was invisible to every count in the project.
+    aliases: [ "claude code", "cloud code", "claw code", "cc", "anthropic cli",
+               "claude cli", "claude agent" ]
     target_videos: 15
 
   - id: cursor
     name: Cursor
-    aliases: [ "cursor", "cursor composer", "cursor ide", "composer" ]
+    aliases: [ "cursor", "curser", "cursor composer", "cursor ide", "composer" ]
     target_videos: 15
 
   - id: codex
     name: OpenAI Codex
-    aliases: [ "codex", "openai codex", "codex cli" ]
+    # "codeex" is how the captions render it in eight videos. "codecs" is
+    # deliberately absent: it is a real word, and its thirteen occurrences
+    # could as easily be about video encoding.
+    aliases: [ "codex", "codeex", "code x", "openai codex", "codex cli" ]
     target_videos: 12
 
   - id: mcp
     name: MCP
-    aliases: [ "mcp", "model context protocol", "mcp server", "mcp servers" ]
+    aliases: [ "mcp", "mcps", "model context protocol", "mcp server", "mcp servers" ]
     target_videos: 12
 
 # Dropped after measuring the ingested corpus, not before. Counted over all 78

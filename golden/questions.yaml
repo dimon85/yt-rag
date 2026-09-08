@@ -21,7 +21,7 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 6
+version: 7
 
 questions:
   - slug: cc-session-cap-tiers
@@ -340,22 +340,19 @@ questions:
       # easy negatives would report a clean abstention rate that means nothing.
 
   - slug: tabnine-team-model-training
-    text: Which of my team's repositories does Tabnine use when it trains a model
-      only we can query?
+    text: Which repositories does Tabnine use to train the model that only we can send queries to?
     kind: negative
     topics: [ absent ]
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-self-hosted-gpu
-    text: What hardware does a self-hosted Tabnine deployment need to serve fifty
-      developers?
+    text: What equipment is required to deploy Tabnine on-premises (self-hosted) to support fifty developers?
     kind: negative
     topics: [ absent ]
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-completion-latency
-    text: How long does Tabnine take to return an inline completion, and is it
-      slower on the free plan?
+    text: How long does it take for Tabnine to provide an autocomplete suggestion directly in the line of code, and does the service run more slowly on the free plan?
     kind: negative
     topics:
       - absent
@@ -363,8 +360,7 @@ questions:
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-seat-pricing-tier
-    text: What does one Tabnine seat cost per month, and which capabilities sit
-      behind the enterprise tier?
+    text: How much does a single Tabnine license cost per month, and what features are available under the Enterprise plan?
     kind: negative
     topics:
       - absent
@@ -374,8 +370,7 @@ questions:
   - slug: tabnine-unsupervised-diff-review
     # Hard: "left to run", "review the diff" are autonomy keywords, so the
     # nearest chunks are the agent-autonomy argument this set already annotates.
-    text: How much of Tabnine's agent work can be left to run before somebody has to
-      review the diff?
+    text: How much work can the Tabnine agent perform autonomously before a review of the changes (diff) is required?
     kind: negative
     topics:
       - absent
@@ -384,8 +379,7 @@ questions:
     gold: []
   - slug: tabnine-large-codebase-context
     # Hard: phrased entirely in context-window vocabulary.
-    text: How large a codebase can Tabnine hold in context before it starts dropping
-      files?
+    text: How large a codebase volume can Tabnine keep in context before it starts discarding files?
     kind: negative
     topics:
       - absent
@@ -394,8 +388,7 @@ questions:
     gold: []
   - slug: tabnine-mcp-server-registration
     # Hard: MCP setup is one of the best-covered topics in the corpus.
-    text: Where does the config that registers an MCP server with Tabnine have to
-      live?
+    text: Where should the configuration file that registers the MCP server in Tabnine be located?
     kind: negative
     topics:
       - absent
@@ -404,8 +397,7 @@ questions:
     gold: []
 
   - slug: jetbrains-ai-quota-reset
-    text: When does the JetBrains AI credit quota reset, and what happens to work in
-      flight once it is spent?
+    text: When does the JetBrains AI credit quota refresh, and what happens to current work once the credits are exhausted?
     kind: negative
     topics:
       - absent
@@ -413,15 +405,13 @@ questions:
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-local-model
-    text: Can JetBrains AI Assistant answer from a model running on my own machine,
-      with no call leaving it?
+    text: Can JetBrains AI Assistant respond using a model running on my own computer, without sending requests externally?
     kind: negative
     topics: [ absent ]
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-license-bundle
-    text: Which JetBrains subscription includes the AI Assistant licence, and can
-      that licence be bought on its own?
+    text: Which JetBrains subscription includes the AI ​​Assistant license, and can this license be purchased separately?
     kind: negative
     topics:
       - absent
@@ -430,8 +420,7 @@ questions:
     gold: []
   - slug: jetbrains-ai-generated-unit-tests
     # Hard: unit-test generation is a live topic in the corpus for other tools.
-    text: How dependable are the unit tests JetBrains AI Assistant writes — do they
-      compile on the first run?
+    text: How reliable are the unit tests written by JetBrains AI Assistant—do they compile on the first try?
     kind: negative
     topics:
       - absent
@@ -442,8 +431,7 @@ questions:
   - slug: jetbrains-ai-plugin-switch-reason
     # Hard: migration phrasing ("switched from", "instead of") plus Copilot,
     # which the corpus mentions 15 times without ever answering this.
-    text: Why would somebody switch away from their existing IDE plugin to JetBrains
-      AI Assistant instead?
+    text: Why might someone decide to switch from their current IDE plugin to JetBrains AI Assistant?
     kind: negative
     topics:
       - absent
@@ -451,8 +439,7 @@ questions:
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-monorepo-indexing
-    text: How long does JetBrains AI Assistant spend indexing a million-line
-      monorepo before it can answer anything about it?
+    text: How long does it take for JetBrains AI Assistant to index a monorepo containing a million lines of code before it can answer questions about it?
     kind: negative
     topics:
       - absent
@@ -460,22 +447,20 @@ questions:
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-inline-prompt-shortcut
-    text: Which keyboard shortcut opens the inline AI prompt inside a JetBrains IDE?
+    text: Which keyboard shortcut opens the built-in AI prompt in JetBrains IDEs?
     kind: negative
     topics: [ absent ]
     tools: [ jetbrains-ai ]
     gold: []
 
   - slug: amazon-q-repository-permissions
-    text: Which permissions does a developer need granted before Amazon Q Developer
-      can read a private repository?
+    text: What permissions must be granted to the developer so that Amazon Q Developer can access a private repository?
     kind: negative
     topics: [ absent ]
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-java-upgrade-agent
-    text: What does the Amazon Q Developer upgrade agent do when a Java version bump
-      breaks a dependency?
+    text: What does the Amazon Q Developer upgrade agent do if a Java version upgrade breaks a dependency?
     kind: negative
     topics:
       - absent
@@ -484,8 +469,7 @@ questions:
     gold: []
   - slug: amazon-q-free-tier-allowance
     # Hard: cost/limits vocabulary, the most densely covered topic in the corpus.
-    text: How many agent requests a month does the Amazon Q Developer free tier
-      allow before the limit bites?
+    text: How many requests to the agent per month does the Amazon Q Developer free tier allow before the limit is reached?
     kind: negative
     topics:
       - absent
@@ -494,8 +478,7 @@ questions:
     gold: []
   - slug: amazon-q-cli-auto-accept
     # Hard: "auto accept" and "without asking" are autonomy keywords.
-    text: Can the Amazon Q command line be told to apply its edits without asking
-      for confirmation each time?
+    text: Can the Amazon Q command-line interface be configured to apply changes without prompting for confirmation every time?
     kind: negative
     topics:
       - absent
@@ -504,8 +487,7 @@ questions:
     gold: []
   - slug: amazon-q-project-context-files
     # Hard: context-window vocabulary.
-    text: Which files does Amazon Q Developer pull in for project context, and how
-      do I keep it out of some of them?
+    text: Which files does Amazon Q Developer use to build the project context, and how can specific files be excluded from this process?
     kind: negative
     topics:
       - absent
@@ -513,8 +495,7 @@ questions:
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-security-scan-rules
-    text: What classes of vulnerability does the Amazon Q code scan report, and can
-      its rules be tuned?
+    text: What classes of vulnerabilities does the Amazon Q code scanner report, and can its rules be customized?
     kind: negative
     topics:
       - absent
@@ -523,16 +504,14 @@ questions:
     gold: []
   - slug: amazon-q-region-availability
     # Hard by shared proper noun: 14 transcripts mention AWS, none mention Q.
-    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams
-      there use instead?
+    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams use instead?
     kind: negative
     topics: [ absent ]
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-mcp-support
     # Hard: the corpus explains MCP at length, just never for this tool.
-    text: Does Amazon Q Developer speak the Model Context Protocol, and how would a
-      server be added to it?
+    text: Does Amazon Q Developer support the Model Context Protocol, and how can a server be added to it?
     kind: negative
     topics:
       - absent
@@ -541,43 +520,38 @@ questions:
     gold: []
 
   - slug: continue-self-hosted-endpoint
-    text: How do I aim Continue at a model endpoint I host myself rather than a
-      hosted provider?
+    text: How do I configure Aim Continue to use a custom model endpoint of my choice, rather than one from a cloud provider?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-custom-slash-command
-    text: How is a custom slash command added to Continue, and where does its
-      definition have to sit?
+    text: How do I add a custom slash command to Continue, and where should its definition be located?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-telemetry-opt-out
-    text: What does Continue send home by default, and how is that turned off?
+    text: What data does Continue send to the server by default, and how can this be disabled?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-autocomplete-model-split
-    text: Does Continue use a different model for autocomplete than for chat, and
-      can the two be set apart?
+    text: Does Continue use a different model for autocomplete than the one used for chat, and is it possible to separate them?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-shared-team-assistant
-    text: How does a team share one Continue assistant configuration across its
-      members?
+    text: How can a team use a shared configuration for the Continue assistant across all its members?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-token-burn-refactor
     # Hard: "burn through tokens" is verbatim cost-topic vocabulary.
-    text: How fast does Continue burn through tokens on a long refactor next to a
-      flat-rate subscription tool?
+    text: How quickly does Continue consume tokens during large-scale refactoring compared to a tool that operates on a fixed-fee subscription model?
     kind: negative
     topics:
       - absent
@@ -586,8 +560,7 @@ questions:
     gold: []
   - slug: continue-agent-half-applied-edits
     # Hard: reliability vocabulary, and the corpus is full of agents failing.
-    text: How often does Continue's agent mode leave a change half applied and
-      quietly stop?
+    text: How often does Continue's agent mode leave changes only partially applied and silently stop working?
     kind: negative
     topics:
       - absent
@@ -595,8 +568,7 @@ questions:
     tools: [ continue ]
     gold: []
   - slug: continue-jetbrains-plugin-parity
-    text: Does the Continue plugin for JetBrains IDEs do everything the VS Code one
-      does?
+    text: Can the Continue plugin for JetBrains IDEs do everything the VS Code plugin can?
     kind: negative
     topics:
       - absent
@@ -604,7 +576,7 @@ questions:
     tools: [ continue, jetbrains-ai ]
     gold: []
   - slug: cursor-antigravity-rivalry
-    text: is google antigravity a real competitor to cursor now
+    text: Is Google Antigravity a real competitor to Cursor at the moment?
     kind: factual
     topics:
       - migration
@@ -618,7 +590,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-ultra-run-length
-    text: how long can claude code ultra mode run before stopping
+    text: How long can Claude Code run in Ultra mode before stopping?
     kind: factual
     topics:
       - autonomy
@@ -633,7 +605,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-terminal-multiplexer
-    text: best terminal app for running multiple claude code agents at once
+    text: The best terminal app for simultaneously running multiple Claude code agents?
     kind: factual
     topics:
       - autonomy
@@ -647,7 +619,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-usage-streak
-    text: how many days in a row has anyone used codex and how many tokens
+    text: For how many consecutive days did someone use Codex, and how many tokens were spent?
     kind: factual
     topics:
       - cost
@@ -661,7 +633,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-phone-remote-pairing
-    text: how do you pair your phone with a claude code session
+    text: How do I link my phone to a Claude Code session?
     kind: factual
     topics:
       - autonomy
@@ -675,8 +647,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: harness-subscription-instead-of-api
-    text: can you use your own anthropic or codex subscription with this multi agent
-      harness instead of api credits
+    text: Can I use my own Anthropic or Codex subscription with this multi-agent system instead of API credits?
     kind: factual
     topics:
       - cost
@@ -692,7 +663,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: opus-sonnet-harness-oneshot
-    text: did opus 4.6 fail a coding task that sonnet 4.6 with the harness completed
+    text: Did Opus 4.6 fail to handle a programming task that Sonnet 4.6 successfully completed within the test set?
     kind: factual
     topics:
       - reliability
@@ -706,8 +677,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: mcp-doc-cache-local
-    text: does this retrieval setup save scraped docs locally so it doesn't refetch
-      them
+    text: Does this data retrieval system store the collected documents locally to avoid downloading them again?
     kind: factual
     topics:
       - context-window
@@ -723,8 +693,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: mcp-programmatic-tool-calling
-    text: does writing code to call mcp tools reduce context usage compared to
-      calling tools one by one
+    text: Does writing code to call MCP tools reduce context consumption compared to calling the tools individually?
     kind: factual
     topics:
       - context-window
@@ -739,7 +708,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-standing-goal-ios-run
-    text: how long did codex run autonomously building an ios app
+    text: How long did Codex work autonomously to create the iOS app?
     kind: factual
     topics:
       - autonomy
@@ -750,5 +719,181 @@ questions:
       - video: rIs802-bXDY
         start_s: 0
         end_s: 33.2
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: model-choice-frontend-backend
+    text: Which AI model is best suited for writing frontend and backend code?
+    kind: factual
+    topics:
+      - reliability
+    tools: []
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 1167.44
+        end_s: 1202.2
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: cc-default-plan-inference-speed
+    text: How fast does GLM 5.2 run via Vercel AI Gateway compared to Claude Code?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 1227.48
+        end_s: 1265.24
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-vs-cc-higher-tier-value
+    text: Is ChatGPT Codex cheaper than Claude Code on higher-tier plans?
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+      - codex
+    source: generated
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 327.44
+        end_s: 364.16
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: shared-local-model-hardware-match
+    text: What is the Buzz agent, and how does it select your hardware model?
+    kind: factual
+    topics:
+      - migration
+    tools: []
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 1407.72
+        end_s: 1443.92
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: local-agent-app-cost
+    text: Do I need to pay to use Buzz?
+    kind: factual
+    topics:
+      - cost
+    tools: []
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 2577.92
+        end_s: 2612.16
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: cursor-agent-thinking-context-config
+    text: How to enable extended thinking mode and configure the context size for Sonnet 5 in Cursor
+    kind: factual
+    topics:
+      - context-window
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 2667.84
+        end_s: 2702.24
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-goals-enable-command
+    text: How to enable and use the "Goals" feature in Codex
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 267.16
+        end_s: 303.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-overnight-migration-length
+    text: How long can Codex perform automated code migration overnight?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 327.48
+        end_s: 363.32
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-goal-artifacts
+    text: What files does Codex create when configuring a target?
+    kind: factual
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 537.44
+        end_s: 573.08
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: skills-open-standard-vs-mcp
+    text: Is Claude's tool-use functionality based on an open standard, and how does it relate to MCP?
+    kind: factual
+    topics:
+      - migration
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: IjiaCOt7bP8
+        start_s: 0
+        end_s: 33.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-million-token-availability
+    text: Does Codex support a 1-million-token context window?
+    kind: factual
+    topics:
+      - context-window
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: ypO0q_8zhWw
+        start_s: 1556
+        end_s: 1592.52
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-fast-mode-included
+    text: Is there an additional fee for the Codex fast mode compared to Claude Code?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: ypO0q_8zhWw
+        start_s: 1616.64
+        end_s: 1653.44
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
