@@ -21,7 +21,7 @@
 #   contradiction  both a pro and a contra span; same-video pairs are allowed
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 7
+version: 8
 
 questions:
   - slug: cc-session-cap-tiers
@@ -340,19 +340,23 @@ questions:
       # easy negatives would report a clean abstention rate that means nothing.
 
   - slug: tabnine-team-model-training
-    text: Which repositories does Tabnine use to train the model that only we can send queries to?
+    text: Which repositories does Tabnine use to train the model that only we can
+      send queries to?
     kind: negative
     topics: [ absent ]
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-self-hosted-gpu
-    text: What equipment is required to deploy Tabnine on-premises (self-hosted) to support fifty developers?
+    text: What equipment is required to deploy Tabnine on-premises (self-hosted) to
+      support fifty developers?
     kind: negative
     topics: [ absent ]
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-completion-latency
-    text: How long does it take for Tabnine to provide an autocomplete suggestion directly in the line of code, and does the service run more slowly on the free plan?
+    text: How long does it take for Tabnine to provide an autocomplete suggestion
+      directly in the line of code, and does the service run more slowly on the
+      free plan?
     kind: negative
     topics:
       - absent
@@ -360,7 +364,8 @@ questions:
     tools: [ tabnine ]
     gold: []
   - slug: tabnine-seat-pricing-tier
-    text: How much does a single Tabnine license cost per month, and what features are available under the Enterprise plan?
+    text: How much does a single Tabnine license cost per month, and what features
+      are available under the Enterprise plan?
     kind: negative
     topics:
       - absent
@@ -370,7 +375,8 @@ questions:
   - slug: tabnine-unsupervised-diff-review
     # Hard: "left to run", "review the diff" are autonomy keywords, so the
     # nearest chunks are the agent-autonomy argument this set already annotates.
-    text: How much work can the Tabnine agent perform autonomously before a review of the changes (diff) is required?
+    text: How much work can the Tabnine agent perform autonomously before a review
+      of the changes (diff) is required?
     kind: negative
     topics:
       - absent
@@ -379,7 +385,8 @@ questions:
     gold: []
   - slug: tabnine-large-codebase-context
     # Hard: phrased entirely in context-window vocabulary.
-    text: How large a codebase volume can Tabnine keep in context before it starts discarding files?
+    text: How large a codebase volume can Tabnine keep in context before it starts
+      discarding files?
     kind: negative
     topics:
       - absent
@@ -388,7 +395,8 @@ questions:
     gold: []
   - slug: tabnine-mcp-server-registration
     # Hard: MCP setup is one of the best-covered topics in the corpus.
-    text: Where should the configuration file that registers the MCP server in Tabnine be located?
+    text: Where should the configuration file that registers the MCP server in
+      Tabnine be located?
     kind: negative
     topics:
       - absent
@@ -397,7 +405,8 @@ questions:
     gold: []
 
   - slug: jetbrains-ai-quota-reset
-    text: When does the JetBrains AI credit quota refresh, and what happens to current work once the credits are exhausted?
+    text: When does the JetBrains AI credit quota refresh, and what happens to
+      current work once the credits are exhausted?
     kind: negative
     topics:
       - absent
@@ -405,13 +414,15 @@ questions:
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-local-model
-    text: Can JetBrains AI Assistant respond using a model running on my own computer, without sending requests externally?
+    text: Can JetBrains AI Assistant respond using a model running on my own
+      computer, without sending requests externally?
     kind: negative
     topics: [ absent ]
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-license-bundle
-    text: Which JetBrains subscription includes the AI ​​Assistant license, and can this license be purchased separately?
+    text: Which JetBrains subscription includes the AI ​​Assistant license, and can
+      this license be purchased separately?
     kind: negative
     topics:
       - absent
@@ -420,7 +431,8 @@ questions:
     gold: []
   - slug: jetbrains-ai-generated-unit-tests
     # Hard: unit-test generation is a live topic in the corpus for other tools.
-    text: How reliable are the unit tests written by JetBrains AI Assistant—do they compile on the first try?
+    text: How reliable are the unit tests written by JetBrains AI Assistant—do they
+      compile on the first try?
     kind: negative
     topics:
       - absent
@@ -431,7 +443,8 @@ questions:
   - slug: jetbrains-ai-plugin-switch-reason
     # Hard: migration phrasing ("switched from", "instead of") plus Copilot,
     # which the corpus mentions 15 times without ever answering this.
-    text: Why might someone decide to switch from their current IDE plugin to JetBrains AI Assistant?
+    text: Why might someone decide to switch from their current IDE plugin to
+      JetBrains AI Assistant?
     kind: negative
     topics:
       - absent
@@ -439,7 +452,9 @@ questions:
     tools: [ jetbrains-ai ]
     gold: []
   - slug: jetbrains-ai-monorepo-indexing
-    text: How long does it take for JetBrains AI Assistant to index a monorepo containing a million lines of code before it can answer questions about it?
+    text: How long does it take for JetBrains AI Assistant to index a monorepo
+      containing a million lines of code before it can answer questions about
+      it?
     kind: negative
     topics:
       - absent
@@ -454,13 +469,15 @@ questions:
     gold: []
 
   - slug: amazon-q-repository-permissions
-    text: What permissions must be granted to the developer so that Amazon Q Developer can access a private repository?
+    text: What permissions must be granted to the developer so that Amazon Q
+      Developer can access a private repository?
     kind: negative
     topics: [ absent ]
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-java-upgrade-agent
-    text: What does the Amazon Q Developer upgrade agent do if a Java version upgrade breaks a dependency?
+    text: What does the Amazon Q Developer upgrade agent do if a Java version
+      upgrade breaks a dependency?
     kind: negative
     topics:
       - absent
@@ -469,7 +486,8 @@ questions:
     gold: []
   - slug: amazon-q-free-tier-allowance
     # Hard: cost/limits vocabulary, the most densely covered topic in the corpus.
-    text: How many requests to the agent per month does the Amazon Q Developer free tier allow before the limit is reached?
+    text: How many requests to the agent per month does the Amazon Q Developer free
+      tier allow before the limit is reached?
     kind: negative
     topics:
       - absent
@@ -478,7 +496,8 @@ questions:
     gold: []
   - slug: amazon-q-cli-auto-accept
     # Hard: "auto accept" and "without asking" are autonomy keywords.
-    text: Can the Amazon Q command-line interface be configured to apply changes without prompting for confirmation every time?
+    text: Can the Amazon Q command-line interface be configured to apply changes
+      without prompting for confirmation every time?
     kind: negative
     topics:
       - absent
@@ -487,7 +506,8 @@ questions:
     gold: []
   - slug: amazon-q-project-context-files
     # Hard: context-window vocabulary.
-    text: Which files does Amazon Q Developer use to build the project context, and how can specific files be excluded from this process?
+    text: Which files does Amazon Q Developer use to build the project context, and
+      how can specific files be excluded from this process?
     kind: negative
     topics:
       - absent
@@ -495,7 +515,8 @@ questions:
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-security-scan-rules
-    text: What classes of vulnerabilities does the Amazon Q code scanner report, and can its rules be customized?
+    text: What classes of vulnerabilities does the Amazon Q code scanner report, and
+      can its rules be customized?
     kind: negative
     topics:
       - absent
@@ -504,14 +525,16 @@ questions:
     gold: []
   - slug: amazon-q-region-availability
     # Hard by shared proper noun: 14 transcripts mention AWS, none mention Q.
-    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams use instead?
+    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams
+      use instead?
     kind: negative
     topics: [ absent ]
     tools: [ amazon-q ]
     gold: []
   - slug: amazon-q-mcp-support
     # Hard: the corpus explains MCP at length, just never for this tool.
-    text: Does Amazon Q Developer support the Model Context Protocol, and how can a server be added to it?
+    text: Does Amazon Q Developer support the Model Context Protocol, and how can a
+      server be added to it?
     kind: negative
     topics:
       - absent
@@ -520,38 +543,44 @@ questions:
     gold: []
 
   - slug: continue-self-hosted-endpoint
-    text: How do I configure Aim Continue to use a custom model endpoint of my choice, rather than one from a cloud provider?
+    text: How do I configure Aim Continue to use a custom model endpoint of my
+      choice, rather than one from a cloud provider?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-custom-slash-command
-    text: How do I add a custom slash command to Continue, and where should its definition be located?
+    text: How do I add a custom slash command to Continue, and where should its
+      definition be located?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-telemetry-opt-out
-    text: What data does Continue send to the server by default, and how can this be disabled?
+    text: What data does Continue send to the server by default, and how can this be
+      disabled?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-autocomplete-model-split
-    text: Does Continue use a different model for autocomplete than the one used for chat, and is it possible to separate them?
+    text: Does Continue use a different model for autocomplete than the one used for
+      chat, and is it possible to separate them?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-shared-team-assistant
-    text: How can a team use a shared configuration for the Continue assistant across all its members?
+    text: How can a team use a shared configuration for the Continue assistant
+      across all its members?
     kind: negative
     topics: [ absent ]
     tools: [ continue ]
     gold: []
   - slug: continue-token-burn-refactor
     # Hard: "burn through tokens" is verbatim cost-topic vocabulary.
-    text: How quickly does Continue consume tokens during large-scale refactoring compared to a tool that operates on a fixed-fee subscription model?
+    text: How quickly does Continue consume tokens during large-scale refactoring
+      compared to a tool that operates on a fixed-fee subscription model?
     kind: negative
     topics:
       - absent
@@ -560,7 +589,8 @@ questions:
     gold: []
   - slug: continue-agent-half-applied-edits
     # Hard: reliability vocabulary, and the corpus is full of agents failing.
-    text: How often does Continue's agent mode leave changes only partially applied and silently stop working?
+    text: How often does Continue's agent mode leave changes only partially applied
+      and silently stop working?
     kind: negative
     topics:
       - absent
@@ -568,7 +598,8 @@ questions:
     tools: [ continue ]
     gold: []
   - slug: continue-jetbrains-plugin-parity
-    text: Can the Continue plugin for JetBrains IDEs do everything the VS Code plugin can?
+    text: Can the Continue plugin for JetBrains IDEs do everything the VS Code
+      plugin can?
     kind: negative
     topics:
       - absent
@@ -605,7 +636,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-terminal-multiplexer
-    text: The best terminal app for simultaneously running multiple Claude code agents?
+    text: The best terminal app for simultaneously running multiple Claude code
+      agents?
     kind: factual
     topics:
       - autonomy
@@ -619,7 +651,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-usage-streak
-    text: For how many consecutive days did someone use Codex, and how many tokens were spent?
+    text: For how many consecutive days did someone use Codex, and how many tokens
+      were spent?
     kind: factual
     topics:
       - cost
@@ -647,7 +680,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: harness-subscription-instead-of-api
-    text: Can I use my own Anthropic or Codex subscription with this multi-agent system instead of API credits?
+    text: Can I use my own Anthropic or Codex subscription with this multi-agent
+      system instead of API credits?
     kind: factual
     topics:
       - cost
@@ -663,7 +697,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: opus-sonnet-harness-oneshot
-    text: Did Opus 4.6 fail to handle a programming task that Sonnet 4.6 successfully completed within the test set?
+    text: Did Opus 4.6 fail to handle a programming task that Sonnet 4.6
+      successfully completed within the test set?
     kind: factual
     topics:
       - reliability
@@ -677,7 +712,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: mcp-doc-cache-local
-    text: Does this data retrieval system store the collected documents locally to avoid downloading them again?
+    text: Does this data retrieval system store the collected documents locally to
+      avoid downloading them again?
     kind: factual
     topics:
       - context-window
@@ -693,7 +729,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: mcp-programmatic-tool-calling
-    text: Does writing code to call MCP tools reduce context consumption compared to calling the tools individually?
+    text: Does writing code to call MCP tools reduce context consumption compared to
+      calling the tools individually?
     kind: factual
     topics:
       - context-window
@@ -797,7 +834,8 @@ questions:
           is empty on purpose: the claim is about a product outside the four the
           corpus tracks, so tagging it would corrupt the per-tool cut."
   - slug: cursor-agent-thinking-context-config
-    text: How to enable extended thinking mode and configure the context size for Sonnet 5 in Cursor
+    text: How to enable extended thinking mode and configure the context size for
+      Sonnet 5 in Cursor
     kind: factual
     topics:
       - context-window
@@ -854,7 +892,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: skills-open-standard-vs-mcp
-    text: Is Claude's tool-use functionality based on an open standard, and how does it relate to MCP?
+    text: Is Claude's tool-use functionality based on an open standard, and how does
+      it relate to MCP?
     kind: factual
     topics:
       - migration
@@ -897,3 +936,74 @@ questions:
         end_s: 1653.44
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
+  - slug: cursor-spacex-pricing-and-data
+    text: Now that SpaceX/Elon Musk is involved with Cursor, what does that mean for
+      its future pricing and who controls its usage data?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 385.28
+        end_s: 423.84
+        note: "David Ondrej (hype): The presenter predicts that Cursor's subscription,
+          backed by SpaceX/Elon Musk's large GPU compute, will soon become
+          heavily subsidized and a great value."
+      - video: jKCjLzjmiaA
+        start_s: 506.88
+        end_s: 544.32
+        note: "Theo - t3.gg (skeptical): Now that Cursor is owned by SpaceX, its
+          valuable usage data is effectively owned by Elon Musk, which could
+          benefit Grok and has precedent in Anthropic cutting off Windsurf-style
+          acquisitions."
+  - slug: agent-lock-in-vs-switching-cost
+    text: Is there a coding agent that gives you full control and freedom from
+      lock-in without the hassle of switching between separate tools like Claude
+      Code and Codex?
+    kind: comparative
+    topics:
+      - migration
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: f8cfH5XX-XU
+        start_s: 2758.16
+        end_s: 2793.52
+        note: "IndyDevDan (practical): PI agent suits users wanting full control over
+          the agent harness and freedom from lock-in, while Claude Code suits
+          users content with its more limited, out-of-the-box feature set."
+      - video: jKCjLzjmiaA
+        start_s: 1468.08
+        end_s: 1503.2
+        note: "Theo - t3.gg (skeptical): Switching between Claude Code and Codex is
+          annoying, and Cursor used to offer a good unified platform with access
+          to many models before circumstances made that harder to maintain."
+  - slug: agent-choice-vs-surrounding-layer
+    text: Does it really matter whether you pick Claude Code or PI as your coding
+      agent if you build the same custom rules, skills, and MCP setup around it?
+    kind: comparative
+    topics:
+      - migration
+      - mcp-setup
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: ulNsa0sD8N0
+        start_s: 146.8
+        end_s: 183.96
+        note: "Cole Medin (practical): The 'AI layer' built around a coding agent—global
+          rules, skills, MCP servers, code search, and hooks—matters more than
+          which coding agent (Claude Code, Codex, etc.) you choose."
+      - video: f8cfH5XX-XU
+        start_s: 2486.24
+        end_s: 2522.68
+        note: "IndyDevDan (practical): Claude Code has minimal built-in customization
+          (requiring a skill or MCP for things PI supports natively, like custom
+          key bindings), whereas PI offers far more customization options."
