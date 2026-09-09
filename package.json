@@ -14,8 +14,8 @@
     "golden": "node --experimental-strip-types packages/evals/src/check.ts",
     "candidates": "node --experimental-strip-types packages/ingest/src/candidates-cli.ts",
     "boundaries": "node --experimental-strip-types packages/ingest/src/boundaries.ts",
-    "ceiling": "node --experimental-strip-types packages/evals/src/ceiling.ts",
-    "review": "node --experimental-strip-types packages/evals/src/review.ts"
+    "ceiling": "node --env-file-if-exists=.env --experimental-strip-types packages/evals/src/ceiling.ts",
+    "review": "node --env-file-if-exists=.env --experimental-strip-types packages/evals/src/review.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fixedChunks } from "../../chunking/src/fixed.ts";
 import { embedLocal, LOCAL_DIM } from "../../embed/src/local.ts";
+import { GeminiEmbedder, GEMINI_DIM } from "../../embed/src/gemini.ts";
 import { cosine, toStorage } from "../../embed/src/storage.ts";
 import { CACHE_DIR, loadCorpus } from "../../ingest/src/corpus.ts";
 import type { Segment } from "../../ingest/src/text.ts";
@@ -32,7 +33,7 @@ import {
 } from "./metrics.ts";
 
 const HELP = `
-usage: pnpm ceiling [--retriever bm25|local|both] [--tokens N] [--overlap N]
+usage: pnpm ceiling [--retriever bm25|local|gemini|both|all] [--tokens N] [--overlap N]
                     [--top-k N] [--mmr LAMBDA]
 
   --mmr LAMBDA   rerank a pool of top-k*5 for diversity. 1 is plain relevance,
@@ -62,10 +63,12 @@ const { values } = (() => {
 })();
 
 const which = values.retriever!;
-if (!["bm25", "local", "both"].includes(which)) {
-  console.error(`--retriever must be bm25, local or both\n\n${HELP}`);
+if (!["bm25", "local", "gemini", "both", "all"].includes(which)) {
+  console.error(`--retriever must be bm25, local, gemini, both or all\n\n${HELP}`);
   process.exit(2);
 }
+const wants = (name: string) =>
+  which === name || which === "all" || (which === "both" && name !== "gemini");
 const targetTokens = Number(values.tokens);
 const overlapTokens = Number(values.overlap);
 const topK = Number(values["top-k"]);
@@ -118,7 +121,7 @@ console.log(`golden: ${golden.questions.length} questions, sha ${goldenSha(golde
 type Retriever = { name: string; run: (query: string) => Promise<Retrieved[]> };
 const retrievers: Retriever[] = [];
 
-if (which === "bm25" || which === "both") {
+if (wants("bm25")) {
   const index = buildIndex(chunks.map((c, i) => ({ id: i, text: c.text })));
   const tokenSets = chunks.map((c) => new Set(tokenize(c.text)));
   retrievers.push({
@@ -139,7 +142,7 @@ if (which === "bm25" || which === "both") {
   });
 }
 
-if (which === "local" || which === "both") {
+if (wants("local")) {
   process.stdout.write("embedding chunks locally");
   const vectors = (await embedLocal(chunks.map((c) => c.text), {
     onProgress: (done, total) => {
@@ -161,6 +164,40 @@ if (which === "local" || which === "both") {
         .slice(0, poolK);
       if (lambda === null) return pool.slice(0, topK).map((p) => p.chunk);
       // Both sides are cosine here, so lambda means what it says without rescaling.
+      return mmrRerank(
+        pool.map((p) => ({ item: p, relevance: p.chunk.score })),
+        (a, b) => cosine(vectors[a.id]!, vectors[b.id]!),
+        { lambda, k: topK },
+      ).map((r) => r.item.chunk);
+    },
+  });
+}
+
+if (wants("gemini")) {
+  // 1536 dimensions by request, which is the storage width exactly — the one
+  // configuration where toStorage has nothing to do.
+  const embedder = new GeminiEmbedder(join(CACHE_DIR, "embeddings"));
+  process.stdout.write("embedding chunks with gemini");
+  const vectors = await embedder.embedAll(chunks.map((c) => c.text), {
+    onProgress: (done, total) => process.stdout.write(`\rembedding chunks with gemini  ${done}/${total}`),
+  });
+  process.stdout.write(
+    `\n  ${embedder.usage.calls} requests, ${embedder.usage.texts} embedded, ` +
+    `${embedder.usage.cached} from cache` +
+    (embedder.usage.waitedMs ? `, ${Math.round(embedder.usage.waitedMs / 1000)}s waiting on quota` : "") +
+    `\n\n`,
+  );
+
+  retrievers.push({
+    name: lambda === null ? "gemini" : `gemini+mmr${lambda}`,
+    run: async (query) => {
+      const [q] = await embedder.batch([query]);
+      const padded = toStorage(q!, GEMINI_DIM);
+      const pool = chunks
+        .map((c, i) => ({ id: i, chunk: { ...c, score: cosine(padded, vectors[i]!) } }))
+        .sort((a, b) => b.chunk.score - a.chunk.score || a.id - b.id)
+        .slice(0, poolK);
+      if (lambda === null) return pool.slice(0, topK).map((p) => p.chunk);
       return mmrRerank(
         pool.map((p) => ({ item: p, relevance: p.chunk.score })),
         (a, b) => cosine(vectors[a.id]!, vectors[b.id]!),
