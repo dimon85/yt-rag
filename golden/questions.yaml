@@ -666,7 +666,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-phone-remote-pairing
-    text: How do I link my phone to a Claude Code session?
+    text: Can I connect a phone to a Claude code session?
     kind: factual
     topics:
       - autonomy
@@ -849,7 +849,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-goals-enable-command
-    text: How to enable and use the "Goals" feature in Codex
+    text: How to use the goals in Codex.
     kind: factual
     topics:
       - autonomy

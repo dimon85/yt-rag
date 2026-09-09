@@ -57,8 +57,19 @@ const rows = set.questions.filter((q) => q.gold.length > 0).map((q) => {
   if (!/\?$/.test(q.text.trim())) flags.push("not phrased as a question");
 
   // Weighted so the top of the list is where rewriting changes the measurement.
+  //
+  // Term-matchability carries most of it, because it is the only flag that is a
+  // defect in itself: every configuration answers such a question, so it takes
+  // no part in the comparison. The rest are symptoms. High overlap explains why
+  // a question is term-matchable without being wrong on its own — a question
+  // about the context window has to say "context window".
+  //
+  // `source` deliberately scores nothing. It correlates strongly — 16 of 30
+  // generated questions are term-matchable against 6 of 16 hand-written — but
+  // being generated is not itself a defect, and scoring it would count the same
+  // evidence twice. It stays in the printed flags as context for the reader.
   const priority =
-    (trivial ? 4 : 0) + (overlap > 0.7 ? 2 : 0) + (q.source === "generated" ? 1 : 0) +
+    (trivial ? 4 : 0) + (overlap > 0.7 ? 2 : 0) +
     (!/\?$/.test(q.text.trim()) ? 2 : 0) + (overlap < OVERLAP_FLOOR ? 1 : 0);
 
   return { q, overlap, trivial, words, flags, priority, recall: recallAtK(q.gold, run(q.text, 5), 5)! };
