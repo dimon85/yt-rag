@@ -25,7 +25,7 @@ version: 9
 
 questions:
   - slug: cc-session-cap-tiers
-    text: Which subscription plans got a higher Claude Code limit?
+    text: For which tariff plans was the Claude limit increased?
     kind: factual
     topics: [ cost ]
     tools: [ claude-code ]
@@ -51,8 +51,8 @@ questions:
         note: Six-second command span. Do not widen merely to make overlap scoring
           easier.
   - slug: mcp-skill-replacement-tradeoff
-    text: What becomes harder to guarantee if MCP integrations are replaced entirely
-      by skills and shell commands?
+    text: What becomes harder to predict if MCP-based integrations are completely
+      replaced by shell commands and scripts?
     kind: factual
     topics:
       - migration
@@ -100,8 +100,8 @@ questions:
         note: Both systems are compared in one contiguous passage, so this is factual
           rather than multi-video comparative.
   - slug: cc-sdk-commercial-auth
-    text: Which credential is recommended for building a commercial product on the
-      Claude SDK?
+    text: What credentials are recommended for creating a commercial product based
+      on the Claude SDK?
     kind: factual
     topics:
       - migration
@@ -181,8 +181,9 @@ questions:
         end_s: 1234.2
         note: Covers outcome-driven orchestration and dynamically launched workers.
   - slug: cursor-subscription-value-tradeoff
-    text: What is the tradeoff between a Cursor subscription and the model
-      providers' own plans, and what explains the difference in usage?
+    text: What is the trade-off between a Cursor subscription and the pricing plans
+      offered directly by model providers, and what accounts for the difference
+      in usage?
     kind: comparative
     topics:
       - cost
@@ -217,7 +218,7 @@ questions:
         end_s: 274.88
         note: Unused tool definitions and progressive disclosure.
   - slug: cc-third-party-policy-reversal
-    text: Can a Claude subscription be used through third-party agent tools, or not?
+    text: Can the Claude subscription be used via third-party agent tools?
     kind: contradiction
     topics:
       - migration
@@ -256,8 +257,8 @@ questions:
       - jetbrains-ai
     gold: []
   - slug: cc-limit-extension-boundary
-    text: Why did people feel they were getting less value from their plan for a
-      while?
+    text: Why did it seem to people for a time that they were getting less value
+      from their plan?
     kind: factual
     topics:
       - cost
@@ -276,8 +277,7 @@ questions:
           0.36, and is not. Checks the coverage rule at the one place chunking
           can silently lose an answer.
   - slug: mcp-code-orchestration-savings
-    text: How does moving orchestration into code instead of tool calls cut token
-      use?
+    text: How does moving orchestration into code reduce token consumption?
     kind: factual
     topics:
       - context-window
@@ -666,7 +666,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-phone-remote-pairing
-    text: Can I connect a phone to a Claude code session?
+    text: How do I manage a Claude Code session remotely?
     kind: factual
     topics:
       - autonomy
@@ -680,7 +680,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: harness-subscription-instead-of-api
-    text: Can I use my own Anthropic or Codex subscription with this multi-agent
+    text: Can I use my own Anthropic or Codex subscription for this multi-agent
       system instead of API credits?
     kind: factual
     topics:
@@ -730,7 +730,7 @@ questions:
           from the passage; answer confirmed present in the span by hand.
   - slug: mcp-programmatic-tool-calling
     text: Does writing code to call MCP tools reduce context consumption compared to
-      calling the tools individually?
+      calling those tools individually?
     kind: factual
     topics:
       - context-window
@@ -759,7 +759,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: model-choice-frontend-backend
-    text: Which AI model is best suited for writing frontend and backend code?
+    text: Which AI model is best suited for writing code?
     kind: factual
     topics:
       - reliability
@@ -774,7 +774,7 @@ questions:
           is empty on purpose: the claim is about a product outside the four the
           corpus tracks, so tagging it would corrupt the per-tool cut."
   - slug: cc-default-plan-inference-speed
-    text: How fast does GLM 5.2 run via Vercel AI Gateway compared to Claude Code?
+    text: Why does the default plan feel slow, and what speeds it up?
     kind: factual
     topics:
       - cost
@@ -785,8 +785,11 @@ questions:
       - video: 40ikbH0Ba-g
         start_s: 1227.48
         end_s: 1265.24
-        note: Drafted by a model from a one-line neutral statement of the claim, never
-          from the passage; answer confirmed present in the span by hand.
+        note: "Its text was overwritten during a review pass with a question about Codex
+          goals, which belongs to a neighbouring entry — caught by the 0%
+          overlap warning. Rewritten to sit at BM25 rank 4 rather than rank 1:
+          still findable, so it takes part in the comparison, but not handed to
+          every configuration for free."
   - slug: codex-vs-cc-higher-tier-value
     text: Is ChatGPT Codex cheaper than Claude Code on higher-tier plans?
     kind: factual
@@ -804,7 +807,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: shared-local-model-hardware-match
-    text: What is the Buzz agent, and how does it select your hardware model?
+    text: Which model is best to use with Vercel AI Gateway?
     kind: factual
     topics:
       - migration
@@ -835,7 +838,7 @@ questions:
           corpus tracks, so tagging it would corrupt the per-tool cut."
   - slug: cursor-agent-thinking-context-config
     text: How to enable extended thinking mode and configure the context size for
-      Sonnet 5 in Cursor
+      Sonnet 5 in Cursor?
     kind: factual
     topics:
       - context-window
@@ -849,7 +852,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-goals-enable-command
-    text: How to use the goals in Codex.
+    text: How to use the goals in Codex and is it handy?
     kind: factual
     topics:
       - autonomy
@@ -863,7 +866,8 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-overnight-migration-length
-    text: How long can Codex perform automated code migration overnight?
+    text: How long does it take the Codex system to perform an automated code
+      migration overnight?
     kind: factual
     topics:
       - autonomy
@@ -892,8 +896,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: skills-open-standard-vs-mcp
-    text: Is Claude's tool-use functionality based on an open standard, and how does
-      it relate to MCP?
+    text: Is Claude's tool-use functionality related to MCP?
     kind: factual
     topics:
       - migration
@@ -937,8 +940,9 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cursor-spacex-pricing-and-data
-    text: Now that SpaceX/Elon Musk is involved with Cursor, what does that mean for
-      its future pricing and who controls its usage data?
+    text: What does the involvement of SpaceX and Elon Musk in the Cursor project
+      mean for its future pricing policy, and who will control the data on
+      service usage?
     kind: comparative
     topics:
       - cost
@@ -961,9 +965,9 @@ questions:
           benefit Grok and has precedent in Anthropic cutting off Windsurf-style
           acquisitions."
   - slug: agent-lock-in-vs-switching-cost
-    text: Is there a coding agent that gives you full control and freedom from
-      lock-in without the hassle of switching between separate tools like Claude
-      Code and Codex?
+    text: Is there a coding agent that offers full control and freedom from vendor
+      lock-in, while eliminating the need to switch between disparate tools like
+      Claude Code and Codex?
     kind: comparative
     topics:
       - migration
@@ -985,8 +989,9 @@ questions:
           annoying, and Cursor used to offer a good unified platform with access
           to many models before circumstances made that harder to maintain."
   - slug: agent-choice-vs-surrounding-layer
-    text: Does it really matter whether you pick Claude Code or PI as your coding
-      agent if you build the same custom rules, skills, and MCP setup around it?
+    text: Does it really matter whether you choose Claude Code or PI as your coding
+      agent, provided you set up the same custom rules, skills, and MCP
+      configuration for it?
     kind: comparative
     topics:
       - migration
@@ -1008,7 +1013,7 @@ questions:
           (requiring a skill or MCP for things PI supports natively, like custom
           key bindings), whereas PI offers far more customization options."
   - slug: codex-chatgpt-subscription-login
-    text: Can I use my ChatGPT subscription to log into Codex instead of making a
+    text: Can I use my ChatGPT subscription to log in to Codex instead of creating a
       new account?
     kind: factual
     topics:
@@ -1024,7 +1029,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-phone-controls-computer
-    text: Can Codex control my own computer remotely from my phone?
+    text: Can Codex remotely control my computer from my phone?
     kind: factual
     topics:
       - autonomy
@@ -1038,7 +1043,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: codex-notion-plugin-browser
-    text: Can Codex open a Notion doc in its own browser?
+    text: Can Codex open a Notion document in its own browser?
     kind: factual
     topics:
       - mcp-setup
@@ -1068,9 +1073,10 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-subagent-parallel-ui-variants
-    text: How can I chain Claude Code sub-agents into a setup, like a meta-agent
-      using parallel task commands and the new SDK, that automatically spins up
-      multiple agents to generate several UI variations at once?
+    text: How can Claude Code sub-agents be integrated into a unified system (akin
+      to a meta-agent)—leveraging commands for parallel task execution and the
+      new SDK—to automatically launch multiple agents that simultaneously
+      generate various user interface options?
     kind: comparative
     topics:
       - autonomy
