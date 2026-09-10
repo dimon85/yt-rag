@@ -1,0 +1,56 @@
+# What a configuration costs to run, in dollars.
+#
+# Separate from configs.yaml because it is a different kind of fact. A chunking
+# row describes this project; a price describes a vendor's tariff on a date, and
+# the two rot on different schedules. `pnpm report` reads this file and prices
+# the units each run recorded — so a corrected price is a re-read of the JSONL,
+# never a re-run of the matrix.
+#
+# Every price needs a `source` and an `as_of`, or it must be `null` with a
+# `reason`. There is no third option and the schema enforces it: a bare number
+# with no provenance is how a made-up figure ends up in a README table, and the
+# figures here are the ones that would be quoted.
+#
+# A null is not a gap in the data. It is the honest answer for this project's
+# actual spend, and `pnpm report` prints the units — texts, tokens, searches —
+# in place of the dollars, which is what was really measured.
+
+version: 1
+
+embedding:
+  local:
+    usd_per_million_tokens: 0
+    as_of: 2026-09-10
+    source: >
+      No vendor. transformers.js runs the model on the CPU of whoever runs the
+      matrix, so the marginal cost of a query embedding is zero and the real
+      cost is wall-clock — which the latency columns already carry. Zero here
+      is a measurement, not a placeholder.
+
+  gemini:
+    usd_per_million_tokens: null
+    reason: >
+      This project never paid Google for an embedding. It ran on the free tier,
+      where the allowance is spent per TEXT against a daily cap of roughly a
+      thousand — not per token against a bill. So a dollar figure here would be
+      a list price for a tier the project did not use, presented next to
+      measured numbers as though it were one of them. The units are recorded
+      instead: 3,238 chunks at 128 tokens is 3,238 units on a ~1,000/day
+      allowance, which is why most dense cells never ran.
+      Fill this in with the paid-tier price, its source and its date if the
+      matrix is ever re-run on a paid key, and `pnpm report` will price it.
+
+rerank:
+  # Keyed by the id in configs.yaml, not by the vendor: a second hosted
+  # reranker would be a second row with its own tariff.
+  cohere-rerank:
+    usd_per_1000_searches: null
+    reason: >
+      Never billed. COHERE_API_KEY was not set for any run in this repository,
+      so all 21 `cohere-rerank` cells were recorded as "not run" rather than
+      measured. The client exists and counts its calls, so the moment a key
+      pays for a run the units are there to price — but pricing them now would
+      put a cost on a row whose recall column is empty.
+      One "search" is one query against up to 100 documents; a pool larger than
+      that counts as more than one, which is why the runner records documents
+      as well as searches.

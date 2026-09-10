@@ -14,10 +14,11 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  Header, Line, Result, Skipped, discordance, foundWithin, meanOf,
-  medianThreshold, falsePositives, repeatDisagreements, tally,
-  type Discordance,
+  Header, Line, Result, Skipped, costPer1000Queries, discordance, foundWithin,
+  indexingCost, meanOf, medianThreshold, falsePositives, percentile,
+  repeatDisagreements, tally, type Cost, type Discordance,
 } from "../../evals/src/run.ts";
+import { embeddingRate, rerankRate, type Prices } from "../../evals/src/prices.ts";
 
 export type CellRun = {
   file: string;
@@ -149,6 +150,19 @@ export type Row = {
   /** Questions whose ranking differed between repeats. Empty is the expected case. */
   disagreements: string[];
   recallPool: number;
+  /**
+   * Retrieval latency over every repeat, not only the first.
+   *
+   * The repeats exist to check that the RANKING is deterministic, and it is —
+   * so the three passes are three independent timings of the same work, which
+   * is exactly what a percentile wants more of. Nothing is averaged away
+   * because nothing differs between them but the clock.
+   */
+  latency: { p50: number | null; p95: number | null; samples: number };
+  /** Mean ms of one query embedding, from the header. null when all cached. */
+  queryEmbedMs: number | null;
+  /** Per 1000 queries, and the one-off index. null with reasons when unpriced. */
+  cost: { perThousandQueries: Cost; indexing: Cost } | null;
 };
 
 /**
@@ -170,8 +184,34 @@ export const rowLabel = (h: Header) => (h.embedder ? `${h.cell} /${h.embedder}` 
  * disagreement is reported and the first repeat is what the row shows —
  * arbitrary, and stated as such, rather than an average nobody asked for.
  */
-export function summarise(cell: CellRun): Row {
+export function summarise(cell: CellRun, prices: Prices): Row {
   const { header } = cell;
+
+  // Priced here rather than in the printer, so the table and any other reader
+  // of a Row see the same figure. A cell with no `cost_units` predates the
+  // column and gets null, which the printer says out loud.
+  const embedRate = embeddingRate(prices, header.embedder);
+  const cost = header.cost_units
+    ? {
+      perThousandQueries: costPer1000Queries(
+        header.cost_units,
+        header.questions,
+        embedRate,
+        rerankRate(prices, header.reranking.kind === "api" ? header.reranking.id : header.reranking.kind),
+      ),
+      indexing: indexingCost(header.cost_units, embedRate),
+    }
+    : null;
+
+  const timings = cell.results
+    .map((r) => r.latency_ms)
+    .filter((ms): ms is number => ms !== undefined);
+  const latency = {
+    p50: percentile(timings, 50),
+    p95: percentile(timings, 95),
+    samples: timings.length,
+  };
+
   const base = {
     label: rowLabel(header),
     cell: header.cell,
@@ -192,6 +232,9 @@ export function summarise(cell: CellRun): Row {
       falsePositiveRate: null,
       split: { trivial: { mean: null, n: 0 }, harder: { mean: null, n: 0 } },
       disagreements: [],
+      latency,
+      queryEmbedMs: header.query_embed_ms_mean ?? null,
+      cost,
     };
   }
 
@@ -225,6 +268,9 @@ export function summarise(cell: CellRun): Row {
     split: { trivial: splitOn(true), harder: splitOn(false) },
     disagreements: repeatDisagreements(cell.results),
     recallPool: answerable.length,
+    latency,
+    queryEmbedMs: header.query_embed_ms_mean ?? null,
+    cost,
   };
 }
 

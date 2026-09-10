@@ -7,6 +7,22 @@ import {
   byKind, comparable, outcomes, pairings, readCell, readDir, rowLabel, summarise,
   type CellRun,
 } from "../src/aggregate.ts";
+import { Prices } from "../../evals/src/prices.ts";
+
+// Both shapes prices.yaml allows: a priced line and an explicitly unpriced one,
+// so a row's cost can be asserted in either state.
+const PRICES = Prices.parse({
+  version: 1,
+  embedding: {
+    local: { usd_per_million_tokens: 0, as_of: "2026-09-10", source: "runs on the CPU" },
+    gemini: { usd_per_million_tokens: 0.15, as_of: "2026-09-10", source: "a test fixture, not a tariff" },
+    unpriced: { usd_per_million_tokens: null, reason: "free tier, counted in texts" },
+  },
+  rerank: {
+    "cohere-rerank": { usd_per_1000_searches: null, reason: "never billed" },
+    "priced-rerank": { usd_per_1000_searches: 2, as_of: "2026-09-10", source: "a test fixture" },
+  },
+});
 
 const header = (over: Partial<Header> = {}): Header => ({
   type: "header",
@@ -162,7 +178,7 @@ describe("summarise", () => {
       result({ slug: "c", recall: { 1: 0, 5: 0.5 }, mrr: 0.5, top1: 0.6 }),
       result({ slug: "n", kind: "negative", recall: { 1: null, 5: null }, mrr: null, top1: 0.7 }),
     ]);
-    const row = summarise(c);
+    const row = summarise(c, PRICES);
     expect(row.recall[5]).toBeCloseTo(0.5, 10);
     expect(row.recall[1]).toBeCloseTo(1 / 3, 10);
     expect(row.mrr).toBeCloseTo(0.5, 10);
@@ -178,7 +194,7 @@ describe("summarise", () => {
       result({ slug: "b", recall: { 1: 0, 5: 0 }, mrr: 0, top1: 0.4 }),
       result({ slug: "c", recall: { 1: 0, 5: 0 }, mrr: 0, top1: 0.6 }),
       result({ slug: "n", kind: "negative", recall: { 1: null, 5: null }, mrr: null, top1: 0.7 }),
-    ]));
+    ]), PRICES);
     expect(row.threshold).toBe(0.6);
     expect(row.falsePositiveRate).toBe(1);
   });
@@ -193,7 +209,7 @@ describe("summarise", () => {
       result({ slug: "a", recall: { 1: 1, 5: 1 }, mrr: 1, top1: 0.5 }),
       result({ slug: "n1", kind: "negative", recall: { 1: null, 5: null }, mrr: null, top1: 0.9 }),
       result({ slug: "n2", kind: "negative", recall: { 1: null, 5: null }, mrr: null, top1: null }),
-    ]));
+    ]), PRICES);
     expect(row.threshold).toBe(0.5);
     expect(row.negatives).toBe(2);
     expect(row.falsePositiveRate).toBe(0.5);
@@ -203,12 +219,12 @@ describe("summarise", () => {
     const row = summarise(cell({}, [
       result({ slug: "a", recall: { 1: 1, 5: 1 }, mrr: 1, top1: 0.5 }),
       result({ slug: "n", kind: "negative", recall: { 1: null, 5: null }, mrr: null, top1: null }),
-    ]));
+    ]), PRICES);
     expect(row.falsePositiveRate).toBe(0);
   });
 
   test("a skipped cell carries its reason and no metrics", () => {
-    const row = summarise(cell({}, [], "not run: no budget — 1618 of 1619 chunk vectors"));
+    const row = summarise(cell({}, [], "not run: no budget — 1618 of 1619 chunk vectors"), PRICES);
     expect(row.notRun).toMatch(/no budget/);
     expect(row.recall).toEqual({});
     expect(row.mrr).toBeNull();
@@ -216,7 +232,7 @@ describe("summarise", () => {
   });
 
   test("a header with no results and no skip line is still not a zero", () => {
-    expect(summarise(cell({}, [])).notRun).toMatch(/not run/);
+    expect(summarise(cell({}, []), PRICES).notRun).toMatch(/not run/);
   });
 
   test("later repeats do not move the row", () => {
@@ -231,7 +247,7 @@ describe("summarise", () => {
         slug: "a", repeat: 2, spans: [{ ...span, start_s: 50, end_s: 60 }],
         recall: { 1: 0, 5: 0 }, mrr: 0, top1: 2,
       }),
-    ]));
+    ]), PRICES);
     expect(row.recall[5]).toBe(1);
     expect(row.disagreements).toEqual(["a"]);
   });
@@ -241,7 +257,7 @@ describe("summarise", () => {
       result({ slug: "t1", lexically_trivial: true, recall: { 1: 1, 5: 1 }, mrr: 1 }),
       result({ slug: "t2", lexically_trivial: true, recall: { 1: 0, 5: 1 }, mrr: 1 }),
       result({ slug: "h1", lexically_trivial: false, recall: { 1: 0, 5: 0 }, mrr: 0 }),
-    ]));
+    ]), PRICES);
     expect(row.split.trivial).toEqual({ mean: 1, n: 2 });
     expect(row.split.harder).toEqual({ mean: 0, n: 1 });
   });
@@ -251,7 +267,7 @@ describe("summarise", () => {
       result({ slug: "c1", contradiction: { 5: true, 10: true } }),
       result({ slug: "c2", contradiction: { 5: false, 10: true } }),
       result({ slug: "f1", contradiction: { 5: null, 10: null } }),
-    ]));
+    ]), PRICES);
     expect(row.contradiction).toEqual({ k: 1, n: 2 });
   });
 });
@@ -356,5 +372,114 @@ describe("byKind", () => {
       result({ slug: "n", kind: "negative", recall: { 5: null } }),
     ]);
     expect(byKind(c, 5).map((t) => t.kind)).toEqual(["factual"]);
+  });
+});
+
+// ─── cost and speed ──────────────────────────────────────────────────────────
+
+describe("latency", () => {
+  const units = {
+    index_embed_texts: 0, index_embed_tokens: 0,
+    query_embed_texts: 0, query_embed_tokens: 0,
+    rerank_searches: 0, rerank_documents: 0,
+  };
+
+  test("percentiles are taken over every repeat, not only the first", () => {
+    // The ranking is identical across repeats, so the three passes are three
+    // timings of the same work — more samples for the percentile, nothing
+    // averaged away.
+    const row = summarise(cell({}, [
+      result({ slug: "a", latency_ms: 1 }),
+      result({ slug: "a", repeat: 2, latency_ms: 5 }),
+      result({ slug: "a", repeat: 3, latency_ms: 9 }),
+    ]), PRICES);
+    expect(row.latency.samples).toBe(3);
+    expect(row.latency.p50).toBe(5);
+    expect(row.latency.p95).toBe(9);
+  });
+
+  test("a file with no timings reports null, never zero", () => {
+    const row = summarise(cell({}, [result({ slug: "a" })]), PRICES);
+    expect(row.latency).toEqual({ p50: null, p95: null, samples: 0 });
+  });
+
+  test("the query-embed mean comes from the header and stays null when cached", () => {
+    expect(summarise(cell({ query_embed_ms_mean: 12.5 }, [result({ slug: "a" })]), PRICES).queryEmbedMs)
+      .toBe(12.5);
+    expect(summarise(cell({}, [result({ slug: "a" })]), PRICES).queryEmbedMs).toBeNull();
+  });
+
+  test("a skipped cell still reports its latency shape rather than throwing", () => {
+    const row = summarise(cell({ cost_units: units }, [], "not run: no budget"), PRICES);
+    expect(row.notRun).toMatch(/no budget/);
+    expect(row.latency.samples).toBe(0);
+  });
+});
+
+describe("row cost", () => {
+  const dense = {
+    index_embed_texts: 1000, index_embed_tokens: 1_000_000,
+    query_embed_texts: 4, query_embed_tokens: 400,
+    rerank_searches: 0, rerank_documents: 0,
+  };
+
+  test("a file that predates the column says so instead of costing nothing", () => {
+    expect(summarise(cell({}, [result({ slug: "a" })]), PRICES).cost).toBeNull();
+  });
+
+  test("a lexical cell costs nothing, and needs no price to say so", () => {
+    const row = summarise(cell({
+      cost_units: {
+        index_embed_texts: 0, index_embed_tokens: 0,
+        query_embed_texts: 0, query_embed_tokens: 0,
+        rerank_searches: 0, rerank_documents: 0,
+      },
+    }, [result({ slug: "a" })]), PRICES);
+    expect(row.cost?.perThousandQueries.usd).toBe(0);
+    expect(row.cost?.indexing.usd).toBe(0);
+  });
+
+  test("a priced embedder gives a figure for both columns, hand-computed", () => {
+    // 400 query tokens over 4 questions is 100 each; at $0.15/M that is
+    // $0.000015 a query, so $0.015 per thousand. The index is 1M tokens flat.
+    const row = summarise(
+      cell({ embedder: "gemini", cost_units: dense }, [result({ slug: "a" })]),
+      PRICES,
+    );
+    expect(row.cost?.perThousandQueries.usd).toBeCloseTo(0.015, 10);
+    expect(row.cost?.indexing.usd).toBeCloseTo(0.15, 10);
+  });
+
+  test("an unpriced embedder nulls the figure and names what was missing", () => {
+    const row = summarise(
+      cell({ embedder: "unpriced", cost_units: dense }, [result({ slug: "a" })]),
+      PRICES,
+    );
+    expect(row.cost?.perThousandQueries.usd).toBeNull();
+    expect(row.cost?.perThousandQueries.unpriced).toEqual(["embedding"]);
+    expect(row.cost?.indexing.usd).toBeNull();
+  });
+
+  test("an unpriced reranker nulls the per-query figure even on a priced embedder", () => {
+    const row = summarise(cell({
+      cell: "c__vector__cohere-rerank",
+      embedder: "gemini",
+      reranking: { id: "cohere-rerank", kind: "api" },
+      cost_units: { ...dense, rerank_searches: 4, rerank_documents: 200 },
+    }, [result({ slug: "a" })]), PRICES);
+    expect(row.cost?.perThousandQueries.usd).toBeNull();
+    expect(row.cost?.perThousandQueries.unpriced).toEqual(["rerank"]);
+    // The index does not depend on the reranker, so it is still a figure.
+    expect(row.cost?.indexing.usd).toBeCloseTo(0.15, 10);
+  });
+
+  test("mmr reranks locally, so it costs nothing and needs no rerank price", () => {
+    const row = summarise(cell({
+      cell: "c__vector__mmr-0.7",
+      embedder: "gemini",
+      reranking: { id: "mmr-0.7", kind: "mmr" },
+      cost_units: dense,
+    }, [result({ slug: "a" })]), PRICES);
+    expect(row.cost?.perThousandQueries.usd).toBeCloseTo(0.015, 10);
   });
 });
