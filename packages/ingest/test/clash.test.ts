@@ -51,7 +51,7 @@ describe("both sides must be different authors", () => {
     const same = [passage("p1", "vidA"), passage("c1", "vidA")];
     const { kept, rejected } = verify([clash()], same);
     expect(kept).toEqual([]);
-    expect(rejected[0]!.reason).toMatch(/both sides are in video vidA/);
+    expect(rejected[0]!.reason).toMatch(/one video, vidA/);
   });
 });
 

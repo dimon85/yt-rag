@@ -229,7 +229,7 @@ questions:
     tools:
       - claude-code
     gold:
-      # Added after `pnpm clashes` made the defect visible: every gold span here
+      # Added after `pnpm pairs` made the defect visible: every gold span here
       # came from one video, so any retriever returning two nearby chunks scored
       # full contradiction coverage. The dispute is between authors, and until
       # this span was added the question could not measure that.
@@ -1134,7 +1134,7 @@ questions:
           variations at once."
 
   # ── contradictions, batch 2 ─────────────────────────────────────────────────
-  # Found with `pnpm clashes --sides any` after matching by vocabulary produced
+  # Found with `pnpm pairs --sides any` after matching by vocabulary produced
   # 0 disagreements from 32 pairs. Both of these are between authors on the same
   # side of the corpus's stance axis, which is why splitting passages by channel
   # stance could not have found either: hype channels mention MCP twice across

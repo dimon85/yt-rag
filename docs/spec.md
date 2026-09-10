@@ -445,7 +445,7 @@ is set by what false-positive rate needs rather than by proportion.
 total of 76 governs what the set can detect, and 18 contradictions turned out
 to be the one line item the corpus may not be able to fill. Searching every
 tool over the whole corpus for passages that cannot both be true returns the
-same four disputes, each with several independent sources — see `pnpm clashes`.
+same four disputes, each with several independent sources — see `pnpm pairs --relation clash`.
 Four is a lower bound from one method with known blind spots: it only reads
 windows that name a tool, and it rejects two claims from one author separated
 in time, which `selection_rules` names as the second source of contradictions.
