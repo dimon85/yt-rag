@@ -150,6 +150,9 @@ describe("AD_PATTERN", () => {
       "clicking the link in the description",
       "just scan the QR code that you see on the screen",
       "here's a word from our sponsor",
+      // Found in a candidate pair, matching none of the forms above.
+      "I highly recommend you go and check out firecrawl",
+      "they actually provided you 12% off if you want the agent subscription",
     ]) {
       expect(AD_PATTERN.test(t)).toBe(true);
     }
@@ -159,6 +162,8 @@ describe("AD_PATTERN", () => {
     for (const t of [
       "the rate limit was doubled for paid plans",
       "it ran for six hours building an iOS app",
+      // "check out" alone is ordinary speech and must not trip the filter.
+      "let's check out what the agent manager does",
     ]) {
       expect(AD_PATTERN.test(t)).toBe(false);
     }

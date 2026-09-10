@@ -146,6 +146,26 @@ export function renderPassages(pro: Passage[], contra: Passage[] = []): string {
 export type Verified = Omit<Clash, "pro" | "contra"> & { pro: Passage; contra: Passage };
 
 /**
+ * The checks both relations need, as one place rather than two.
+ *
+ * Returns the reason a pair cannot be used, or null when it can.
+ */
+function rejectionReason(
+  claim: string,
+  ids: [string, string],
+  resolved: [Passage | undefined, Passage | undefined],
+): string | null {
+  const [a, b] = resolved;
+  if (!a || !b) {
+    const missing = [!a && ids[0], !b && ids[1]].filter(Boolean).join(", ");
+    return `cites unknown passage ${missing}`;
+  }
+  if (a.video === b.video) return `both passages come from one video, ${a.video}`;
+  if (/\?\s*$/.test(claim)) return "claim is phrased as a question";
+  return null;
+}
+
+/**
  * Keeps only clashes whose cited passages were actually offered, and whose two
  * sides come from different videos.
  *
@@ -167,20 +187,134 @@ export function verify(
   for (const c of clashes) {
     const pro = byId.get(c.pro);
     const contra = byId.get(c.contra);
-    if (!pro || !contra) {
-      const missing = [!pro && c.pro, !contra && c.contra].filter(Boolean).join(", ");
-      rejected.push({ clash: c, reason: `cites unknown passage ${missing}` });
-      continue;
-    }
-    if (pro.video === contra.video) {
-      rejected.push({ clash: c, reason: `both sides are in video ${pro.video}` });
-      continue;
-    }
-    if (/\?\s*$/.test(c.claim)) {
-      rejected.push({ clash: c, reason: "claim is phrased as a question" });
-      continue;
-    }
-    kept.push({ ...c, pro, contra });
+    const reason = rejectionReason(c.claim, [c.pro, c.contra], [pro, contra]);
+    if (reason) rejected.push({ clash: c, reason });
+    else kept.push({ ...c, pro: pro!, contra: contra! });
   }
   return { kept, rejected };
+}
+
+// ─── the other relation ──────────────────────────────────────────────────────
+
+/**
+ * Two passages that each cover part of one subject, where neither covers it
+ * alone. That is what a `comparative` question needs: `pnpm golden` requires
+ * spans from two different videos, and the point of the kind is that returning
+ * either one is not enough.
+ *
+ * It is the same machinery as the clash search and a different relation, which
+ * is why it lives here. It is also the cheaper half of the shortfall: the set
+ * is 14 comparative questions short and 13 contradictions short, and a
+ * disagreement needs two authors to conflict while this needs only two authors
+ * to cover different parts of one thing. The corpus has the second in
+ * quantity and, measurably, not much of the first.
+ */
+export const ComplementSchema = z.object({
+  pairs: z.array(z.object({
+    /** The subject both passages speak to, stated neutrally and not as a question. */
+    subject: z.string().min(10),
+    a: z.string(),
+    b: z.string(),
+    /** What A covers that B does not. Empty means the pair is redundant. */
+    a_only: z.string(),
+    /** What B covers that A does not. */
+    b_only: z.string(),
+  })),
+});
+export type Complement = z.infer<typeof ComplementSchema>["pairs"][number];
+
+export const COMPLEMENT_PROMPT = `
+You are given passages transcribed from YouTube tutorials about AI coding
+tools, by different authors.
+
+Find pairs of passages where BOTH are needed to answer one question about a
+specific subject — a mechanism, a trade-off, a workflow, a cost. The two
+passages must be by different authors.
+
+The requirement that makes this hard: NEITHER passage may answer the subject on
+its own. Each must carry something the other does not. Do NOT report:
+- two passages that say the same thing in different words
+- a pair where one passage already covers everything the other does
+- two passages about the same tool but different subjects
+- a passage that merely mentions the subject in passing
+
+For each pair, state the subject as a neutral one-line proposition — not a
+question, and not reusing the passages' phrasing — and say concretely what each
+passage covers that the other does not.
+
+Cite passages ONLY by the ids given. Never invent an id or a timestamp.
+Return an empty list if no pair genuinely needs both halves.
+`.trim();
+
+export type VerifiedComplement = Omit<Complement, "a" | "b"> & { a: Passage; b: Passage };
+
+/**
+ * As `verify`, plus the check that separates a comparative pair from two
+ * redundant sources: both sides must contribute something.
+ *
+ * Without it the pair becomes a factual question scored against two spans, one
+ * of which no retriever needs to find — which quietly lowers recall for every
+ * configuration equally and measures nothing.
+ */
+export function verifyComplements(
+  pairs: Complement[],
+  offered: Passage[],
+): { kept: VerifiedComplement[]; rejected: { pair: Complement; reason: string }[] } {
+  const byId = new Map(offered.map((p) => [p.id, p]));
+  const kept: VerifiedComplement[] = [];
+  const rejected: { pair: Complement; reason: string }[] = [];
+
+  for (const p of pairs) {
+    const a = byId.get(p.a);
+    const b = byId.get(p.b);
+    const reason = rejectionReason(p.subject, [p.a, p.b], [a, b])
+      ?? (p.a_only.trim() === "" || p.b_only.trim() === ""
+        ? "one side contributes nothing the other does not"
+        : null);
+    if (reason) rejected.push({ pair: p, reason });
+    else kept.push({ ...p, a: a!, b: b! });
+  }
+  return { kept, rejected };
+}
+
+// ─── what the set already covers ─────────────────────────────────────────────
+
+/** The little of an existing question this needs to know. */
+export type Annotated = {
+  slug: string;
+  gold: { video: string; start_s: number; end_s: number }[];
+};
+
+const overlaps = (
+  a: { video: string; start_s: number; end_s: number },
+  b: { video: string; start_s: number; end_s: number },
+) => a.video === b.video && a.end_s > b.start_s && b.end_s > a.start_s;
+
+/**
+ * The slug of an existing question this pair would duplicate, or null.
+ *
+ * A pair counts as a duplicate only when BOTH of its spans overlap the gold
+ * spans of one question. One overlapping span is not enough: a stretch of
+ * video can legitimately answer more than one question, and it is the pair
+ * that would be redundant rather than the passage.
+ *
+ * Added after the complement search returned a pair whose two spans were the
+ * same two videos as `skills-versus-tool-discovery`, shifted by a few seconds.
+ * That is the expensive kind of duplicate — it looks new until the spans are
+ * read side by side, by which point an hour is gone.
+ *
+ * Intervals are half-open, the same convention as the hit rule: two spans that
+ * merely touch at an endpoint cover different seconds.
+ */
+export function duplicateOf(
+  a: Passage,
+  b: Passage,
+  questions: Annotated[],
+): string | null {
+  for (const q of questions) {
+    const hitsA = q.gold.some((g) => overlaps(g, a));
+    const hitsB = q.gold.some((g) => overlaps(g, b));
+    if (hitsA && hitsB) return q.slug;
+  }
+  return null;
 }

@@ -1,29 +1,38 @@
-// Passages that disagree, for annotation.
+// Pairs of passages by different authors, for annotation.
 //
-//   pnpm clashes --cells                     # material per cell, before spending anything
-//   pnpm clashes --tool claude-code --topic limits
-//   pnpm clashes --tool cursor --contra skeptical+practical
+//   pnpm pairs --cells                       # material per cell, before spending anything
+//   pnpm pairs --tool claude-code --relation clash --sides any
+//   pnpm pairs --tool mcp --relation complement
 //
-// Prints candidate clashes with both spans and the disputed claim. It does not
-// write questions and does not touch questions.yaml: the claim is a seed to
-// write one from later, with the passage out of view. See clash.ts for why.
+// Prints candidates with both spans. It does not write questions and does not
+// touch questions.yaml: what comes back is a seed to write one from later,
+// with the passage out of view. See clash.ts for why.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { parse as parseYaml } from "yaml";
 import { GoogleGenAI } from "@google/genai";
 import {
-  ClashSchema, type Passage, POOLED_PROMPT, PROMPT, renderPassages, verify,
+  type Annotated, ClashSchema, COMPLEMENT_PROMPT, ComplementSchema, duplicateOf,
+  type Passage, POOLED_PROMPT, PROMPT, renderPassages, verify, verifyComplements,
 } from "./clash.ts";
-import { hasPhrase, score, tile } from "./candidates.ts";
-import { CACHE_DIR, loadCorpus, type Stance } from "./corpus.ts";
+import { AD_PATTERN, hasPhrase, score, tile } from "./candidates.ts";
+import { CACHE_DIR, loadCorpus, ROOT, type Stance } from "./corpus.ts";
 import { normalizeTranscript, type Segment } from "./text.ts";
 
 const HELP = `
-usage: pnpm clashes --tool ID [--topic ID] [--sides S] [--contra S]
-                    [--width S] [--limit N] [--model ID]
-       pnpm clashes --cells [--sides S]
+usage: pnpm pairs --tool ID [--relation R] [--topic ID] [--sides S] [--contra S]
+                  [--width S] [--limit N] [--model ID]
+       pnpm pairs --cells [--sides S]
 
-  --tool ID     tool the disagreement must be about (required)
+  --relation R  clash | complement (default clash)
+                clash finds passages that cannot both be true, for a
+                contradiction question. complement finds passages that each
+                cover part of one subject where neither covers it alone, for a
+                comparative question — the cheaper of the two, since two
+                authors need only cover different parts of a thing rather than
+                disagree about it.
+  --tool ID     tool the pair must be about (required)
   --topic ID    restrict to passages matching the topic's spoken keywords
   --sides S     stance | any (default stance)
                 stance splits passages by channel stance and tells the model
@@ -52,6 +61,7 @@ const { values } = (() => {
       options: {
         tool: { type: "string" },
         topic: { type: "string" },
+        relation: { type: "string", default: "clash" },
         sides: { type: "string", default: "stance" },
         contra: { type: "string", default: "skeptical" },
         width: { type: "string", default: "45" },
@@ -76,7 +86,13 @@ const CONTRA_SETS: Record<string, Stance[]> = {
 const contraStances = CONTRA_SETS[values.contra!]
   ?? usage(`--contra must be one of ${Object.keys(CONTRA_SETS).join(" | ")}`);
 
-const pooled = values.sides === "any";
+if (!["clash", "complement"].includes(values.relation!)) {
+  usage("--relation must be clash or complement");
+}
+const complement = values.relation === "complement";
+// A complement is defined across authors, not across stances, so the stance
+// split has nothing to say about it.
+const pooled = values.sides === "any" || complement;
 if (!["stance", "any"].includes(values.sides!)) usage("--sides must be stance or any");
 
 const widthS = Number(values.width);
@@ -211,35 +227,59 @@ if (!apiKey) usage("GEMINI_API_KEY is not set — put it in .env, see .env.examp
 const ai = new GoogleGenAI({ apiKey });
 const res = await ai.models.generateContent({
   model: values.model!,
-  contents: pooled
-    ? `${POOLED_PROMPT}\n\n${renderPassages(pro)}`
-    : `${PROMPT}\n\n${renderPassages(pro, contra)}`,
+  contents: complement
+    ? `${COMPLEMENT_PROMPT}\n\n${renderPassages(pro)}`
+    : pooled
+      ? `${POOLED_PROMPT}\n\n${renderPassages(pro)}`
+      : `${PROMPT}\n\n${renderPassages(pro, contra)}`,
   config: {
     responseMimeType: "application/json",
-    responseSchema: {
-      type: "object",
-      properties: {
-        clashes: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              claim: { type: "string" },
-              pro: { type: "string" },
-              contra: { type: "string" },
-              why: { type: "string" },
-              directness: { type: "string", enum: ["flat", "partial"] },
+    responseSchema: complement
+      ? {
+        type: "object",
+        properties: {
+          pairs: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                subject: { type: "string" },
+                a: { type: "string" },
+                b: { type: "string" },
+                a_only: { type: "string" },
+                b_only: { type: "string" },
+              },
+              required: ["subject", "a", "b", "a_only", "b_only"],
             },
-            required: ["claim", "pro", "contra", "why", "directness"],
           },
         },
+        required: ["pairs"],
+      }
+      : {
+        type: "object",
+        properties: {
+          clashes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                claim: { type: "string" },
+                pro: { type: "string" },
+                contra: { type: "string" },
+                why: { type: "string" },
+                directness: { type: "string", enum: ["flat", "partial"] },
+              },
+              required: ["claim", "pro", "contra", "why", "directness"],
+            },
+          },
+        },
+        required: ["clashes"],
       },
-      required: ["clashes"],
-    },
   },
 });
 
-const parsed = ClashSchema.safeParse(JSON.parse(res.text ?? "{}"));
+const raw = JSON.parse(res.text ?? "{}");
+const parsed = complement ? ComplementSchema.safeParse(raw) : ClashSchema.safeParse(raw);
 if (!parsed.success) {
   console.error("the model returned something the schema rejects:");
   console.error(parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n"));
@@ -247,25 +287,66 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-const { kept, rejected } = verify(parsed.data.clashes, [...pro, ...contra]);
+const offered = [...pro, ...contra];
 
-console.log(`\n${parsed.data.clashes.length} proposed, ${kept.length} verified\n`);
-for (const c of kept) {
-  console.log(`${c.directness.toUpperCase()}  ${c.claim}`);
-  console.log(`  ${c.why}`);
-  console.log(`  pro     ${c.pro.channel} — youtu.be/${c.pro.video}?t=${Math.floor(c.pro.start_s)}` +
-    `  (${c.pro.start_s.toFixed(2)}–${c.pro.end_s.toFixed(2)})`);
-  console.log(`  contra  ${c.contra.channel} — youtu.be/${c.contra.video}?t=${Math.floor(c.contra.start_s)}` +
-    `  (${c.contra.start_s.toFixed(2)}–${c.contra.end_s.toFixed(2)})\n`);
+// What the set already covers. Read straight from the YAML rather than through
+// the golden loader: that lives in packages/evals, which already imports from
+// here, and only the slug and the spans are needed.
+const annotated: Annotated[] = (
+  parseYaml(readFileSync(join(ROOT, "golden", "questions.yaml"), "utf8")).questions ?? []
+).map((q: any) => ({ slug: q.slug, gold: q.gold ?? [] }));
+
+const dupe = (a: Passage, b: Passage) => duplicateOf(a, b, annotated);
+const where = (p: Passage) =>
+  `${p.channel} — youtu.be/${p.video}?t=${Math.floor(p.start_s)}` +
+  `  (${p.start_s.toFixed(2)}–${p.end_s.toFixed(2)})` +
+  // Marked, not dropped: a 90-second window can hold an ad read and a real
+  // claim, and narrowing the span is a judgement only a reader can make.
+  (AD_PATTERN.test(p.text) ? "  [contains an ad read — check the span]" : "");
+
+let proposed: number;
+let verified: number;
+const rejections: { reason: string; claim: string }[] = [];
+
+if (complement) {
+  const { pairs } = parsed.data as { pairs: import("./clash.ts").Complement[] };
+  const { kept, rejected } = verifyComplements(pairs, offered);
+  proposed = pairs.length;
+  verified = kept.length;
+  console.log(`\n${proposed} proposed, ${verified} verified\n`);
+  for (const c of kept) {
+    const already = dupe(c.a, c.b);
+    console.log(already ? `${c.subject}\n  ALREADY ASKED as ${already}` : c.subject);
+    console.log(`  a only  ${c.a_only}`);
+    console.log(`  b only  ${c.b_only}`);
+    console.log(`  a       ${where(c.a)}`);
+    console.log(`  b       ${where(c.b)}\n`);
+  }
+  rejections.push(...rejected.map(({ pair, reason }) => ({ reason, claim: pair.subject })));
+} else {
+  const { clashes } = parsed.data as { clashes: import("./clash.ts").Clash[] };
+  const { kept, rejected } = verify(clashes, offered);
+  proposed = clashes.length;
+  verified = kept.length;
+  console.log(`\n${proposed} proposed, ${verified} verified\n`);
+  for (const c of kept) {
+    const already = dupe(c.pro, c.contra);
+    console.log(`${c.directness.toUpperCase()}  ${c.claim}`);
+    if (already) console.log(`  ALREADY ASKED as ${already}`);
+    console.log(`  ${c.why}`);
+    console.log(`  pro     ${where(c.pro)}`);
+    console.log(`  contra  ${where(c.contra)}\n`);
+  }
+  rejections.push(...rejected.map(({ clash, reason }) => ({ reason, claim: clash.claim })));
 }
 
-if (rejected.length > 0) {
-  console.log(`rejected ${rejected.length}:`);
-  for (const { clash, reason } of rejected) console.log(`  ${reason} — ${clash.claim}`);
+if (rejections.length > 0) {
+  console.log(`rejected ${rejections.length}:`);
+  for (const r of rejections) console.log(`  ${r.reason} — ${r.claim}`);
 }
 
 console.log(
-  "\nBoth spans need watching before either becomes gold. The claim is a seed:\n" +
-  "write the question from it with the passage out of view, or term matching\n" +
-  "answers it and the question stops separating configurations.",
+  "\nBoth spans need watching before either becomes gold. What the model returns\n" +
+  "is a seed, not a question: write the question from it with the passage out of\n" +
+  "view, or term matching answers it and it stops separating configurations.",
 );
