@@ -1,4 +1,4 @@
-# Version 11: 81 questions (5 contradictions, every one of them cross-author)
+# Version 12: 81 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 11
+version: 12
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1110,10 +1110,7 @@ questions:
         note: Drafted by a model from a one-line neutral statement of the claim, never
           from the passage; answer confirmed present in the span by hand.
   - slug: cc-subagent-parallel-ui-variants
-    text: How can Claude Code sub-agents be integrated into a unified system (akin
-      to a meta-agent)—leveraging commands for parallel task execution and the
-      new SDK—to automatically launch multiple agents that simultaneously
-      generate various user interface options?
+    text: How do people run several sub-agents in parallel instead of one at a time?
     kind: comparative
     topics:
       - autonomy

@@ -58,7 +58,7 @@ const rows = set.questions.filter((q) => q.gold.length > 0).map((q) => {
   // Reasons, in the order they matter. A trivial question contributes nothing
   // to a comparison; a very short one is probably fine and just scores oddly.
   const flags: string[] = [];
-  if (trivial) flags.push("found by term matching at rank 1 — every configuration gets it");
+  if (trivial) flags.push("term matching puts it first — which does not mean every retriever finds it");
   if (unreachable) flags.push("not in the top 20 for term matching — check any retriever can reach it");
   if (!trivial && !unreachable) flags.push(`term matching puts it at rank ${rank}`);
   if (overlap > 0.7) flags.push(`${Math.round(overlap * 100)}% of its words are in the answer`);
@@ -69,11 +69,16 @@ const rows = set.questions.filter((q) => q.gold.length > 0).map((q) => {
 
   // Weighted so the top of the list is where rewriting changes the measurement.
   //
-  // Term-matchability carries most of it, because it is the only flag that is a
-  // defect in itself: every configuration answers such a question, so it takes
-  // no part in the comparison. The rest are symptoms. High overlap explains why
-  // a question is term-matchable without being wrong on its own — a question
-  // about the context window has to say "context window".
+  // Term-matchability scores NOTHING, which is a reversal of what this used to
+  // do. It carried the largest weight on the reasoning that every
+  // configuration answers such a question, so it takes no part in the
+  // comparison. Measured, that is backwards: on 15 term-matchable questions
+  // recall@5 was 91.3% for BM25, 74.7% for hosted embeddings and 36.0% for the
+  // local model, against a 17 pp spread on the other 34. They are the most
+  // discriminating group in the set, and this list was sending them to the top
+  // of the pile to be rewritten. Two separate measurements now say to leave
+  // them alone: this one, and the eight rewrites of which seven became
+  // unreachable.
   //
   // `source` scores nothing: it correlates strongly with the problem — 16 of 30
   // generated questions are term-matchable against 6 of 16 hand-written — but
@@ -91,8 +96,7 @@ const rows = set.questions.filter((q) => q.gold.length > 0).map((q) => {
   // them out of reach of BM25 *and* of local embeddings entirely. A question no
   // retriever finds tells a comparison exactly as little as one they all find.
   const priority =
-    (trivial ? 4 : 0) + (unreachable ? 4 : 0) +
-    (!/\?$/.test(q.text.trim()) ? 2 : 0);
+    (unreachable ? 4 : 0) + (!/\?$/.test(q.text.trim()) ? 2 : 0);
 
   return { q, overlap, trivial, unreachable, words, flags, priority, recall: recallAtK(q.gold, run(q.text, 5), 5)! };
 });
@@ -101,9 +105,10 @@ const shown = values.all ? rows : rows.filter((r) => r.priority > 0);
 shown.sort((a, b) => b.priority - a.priority || b.overlap - a.overlap);
 
 console.log(
-  `${rows.length} questions carry gold spans. ${rows.filter((r) => r.trivial).length} are handed ` +
-  `to every configuration by term matching;\n${rows.filter((r) => r.unreachable).length} are out ` +
-  `of reach of it entirely. Both extremes measure nothing — the useful ones\nsit between.\n`,
+  `${rows.length} questions carry gold spans. ${rows.filter((r) => r.trivial).length} are put ` +
+  `first by term matching, which is not the\ndefect it looks like — those separate ` +
+  `configurations best of any group in the set.\n${rows.filter((r) => r.unreachable).length} are ` +
+  `out of reach of term matching entirely, and those are worth a look.\n`,
 );
 
 for (const r of shown) {
@@ -125,7 +130,9 @@ for (const s of ["hand", "generated"] as const) {
   );
 }
 console.log(
-  "\nAim for term matching finding the answer, but not first. Removing the shared\n" +
-  "wording altogether was measured and it overshoots: seven of eight questions\n" +
-  "rewritten that way became unreachable for BM25 and local embeddings alike.",
+  "\nRemoving the wording a question shares with its answer was measured twice and\n" +
+  "it overshoots both ways. Seven of eight questions rewritten that way became\n" +
+  "unreachable for BM25 and local embeddings alike. And the questions term\n" +
+  "matching finds first are the ones that separate configurations best — 55 pp\n" +
+  "of spread against 17 pp for the rest. Rewrite for phrasing, not for overlap.",
 );

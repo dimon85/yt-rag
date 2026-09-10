@@ -121,8 +121,19 @@ export function falsePositiveRate(topScores: number[], threshold: number): numbe
  * Whether term matching alone finds this question's answer.
  *
  * True when a lexical retriever puts a gold span first. Such a question is not
- * bad — it is a perfectly ordinary thing to ask — but it cannot distinguish one
- * retrieval configuration from another, because they all get it.
+ * bad — it is a perfectly ordinary thing to ask.
+ *
+ * It is also NOT true that every configuration gets it, which is what this
+ * function was originally documented and weighted on. Measured on 15 such
+ * questions at 128-token chunks, recall@5 was 91.3% for BM25, 74.7% for
+ * hosted embeddings and 36.0% for the local model — a spread of 55 pp. On the
+ * other 34 questions the spread was 17 pp. So these questions separate
+ * configurations more than three times better than the rest of the set, and
+ * treating them as dead weight had it backwards.
+ *
+ * What the flag is good for is the split in the report: "how much better is
+ * retrieval than grep" is only a question about the half where grep works,
+ * and averaging the two halves hides both answers.
  *
  * This replaced a threshold on question/passage word overlap, which was a proxy
  * and a poor one: overlap is a fraction of the *question's* words, so a
