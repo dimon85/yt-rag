@@ -311,9 +311,15 @@ export const foundWithin = (r: Result, k: number): boolean | null => {
  * turns on — but it is what distinguishes "the same code chunked a changed
  * corpus" from "the corpus is the same". Cheap to record, impossible to
  * reconstruct later.
+ *
+ * Delimited by "\0" rather than by a space: a space occurs inside chunk texts
+ * and a NUL cannot, so with a space two different chunkings whose texts split
+ * differently around one can hash identically. Written as the escape and never
+ * as a literal byte — a NUL in the source makes git treat the file as binary
+ * and grep skip it without saying so.
  */
 export function chunkSha(texts: string[]): string {
   const h = createHash("sha256");
-  for (const t of texts) h.update(t).update(" ");
+  for (const t of texts) h.update(t).update("\0");
   return h.digest("hex").slice(0, 16);
 }
