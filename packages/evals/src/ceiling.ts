@@ -34,11 +34,16 @@ import {
 
 const HELP = `
 usage: pnpm ceiling [--retriever bm25|local|gemini|both|all] [--tokens N] [--overlap N]
-                    [--top-k N] [--mmr LAMBDA]
+                    [--top-k N] [--mmr LAMBDA] [--gemini-batch N]
 
   --mmr LAMBDA   rerank a pool of top-k*5 for diversity. 1 is plain relevance,
                  0 ignores the query. Contradiction coverage cannot move
                  without it: plain top-k returns one side of a disagreement.
+
+  --gemini-batch N
+                 texts per Gemini request, at most 100. A request spends one
+                 unit of the daily quota per text, so a smaller batch is what
+                 gets anything at all once the day's budget is nearly gone.
 `.trimStart();
 
 const argv = process.argv.slice(2)
@@ -53,6 +58,7 @@ const { values } = (() => {
         overlap: { type: "string", default: "0" },
         "top-k": { type: "string", default: "10" },
         mmr: { type: "string" },
+        "gemini-batch": { type: "string" },
       },
       allowPositionals: false,
     });
@@ -179,6 +185,7 @@ if (wants("gemini")) {
   const embedder = new GeminiEmbedder(join(CACHE_DIR, "embeddings"));
   process.stdout.write("embedding chunks with gemini");
   const vectors = await embedder.embedAll(chunks.map((c) => c.text), {
+    batchSize: values["gemini-batch"] ? Number(values["gemini-batch"]) : undefined,
     onProgress: (done, total) => process.stdout.write(`\rembedding chunks with gemini  ${done}/${total}`),
   });
   process.stdout.write(

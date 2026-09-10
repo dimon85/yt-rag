@@ -68,7 +68,18 @@ export class GeminiEmbedder {
     this.cache = existsSync(this.cachePath) ? JSON.parse(readFileSync(this.cachePath, "utf8")) : {};
   }
 
-  /** Content hash, so the cache survives rechunking that produces the same text. */
+  /**
+   * Content hash, so the cache survives rechunking that produces the same text.
+   *
+   * Nothing but the text goes into the key, which is only safe while one text
+   * has one vector. It does today: `taskType` is the parameter that would break
+   * it, and this model ignores it. Measured rather than assumed — embedding the
+   * same passage as RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, QUESTION_ANSWERING and
+   * with no task type at all returns four byte-identical vectors, while an
+   * invented value is rejected with a 400. So the parameter is validated and
+   * then discarded. Passing it would have looked like asymmetric retrieval and
+   * done nothing; a model that honours it would need the task type in this key.
+   */
   private key = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 24);
 
   /** One request. Returns one vector per input, or throws. */
@@ -96,27 +107,38 @@ export class GeminiEmbedder {
   /**
    * Embeds everything, from cache where possible.
    *
-   * The free tier allows 100 requests a minute, so 3,238 chunks is 33 requests
-   * at the maximum batch size and comfortably inside it — but the first attempt
-   * used batches of 32 and no pacing, and died on a 429 after 96 chunks. The
-   * cache is what makes that recoverable: a run that dies partway keeps
-   * everything it embedded.
+   * Quota is spent per text, not per request — a batch of 100 costs 100 units.
+   * This is worth stating plainly because the arithmetic that looks right is
+   * wrong: 3,238 chunks is 33 requests at the maximum batch size, which sounds
+   * comfortable against a limit of 100 a minute, and is in fact 3,238 units
+   * against a free daily allowance of roughly a thousand. The free tier cannot
+   * embed this corpus at 128 tokens at all, on any schedule.
+   *
+   * Measured, once the day's budget was nearly gone: a one-text call succeeded
+   * while a hundred-text one was refused outright as a per-day exhaustion. A
+   * batch is not partially served — it is refused whole when it asks for more
+   * than remains, which is why `batchSize` is worth turning down at the end of
+   * a budget rather than retrying the same request.
+   *
+   * The cache is what makes any of this recoverable: a run that dies partway
+   * keeps everything it embedded.
    */
   async embedAll(
     texts: string[],
-    opts: { sleepMs?: number; onProgress?: (done: number, total: number) => void } = {},
+    opts: { sleepMs?: number; batchSize?: number; onProgress?: (done: number, total: number) => void } = {},
   ): Promise<number[][]> {
     const sleepMs = opts.sleepMs ?? 700;
+    const step = Math.min(Math.max(1, opts.batchSize ?? MAX_BATCH), MAX_BATCH);
     const missing = [...new Set(texts.filter((t) => !this.cache[this.key(t)]))];
     this.usage.cached = texts.length - missing.length;
 
-    for (let i = 0; i < missing.length; i += MAX_BATCH) {
-      const slice = missing.slice(i, i + MAX_BATCH);
+    for (let i = 0; i < missing.length; i += step) {
+      const slice = missing.slice(i, i + step);
       const vectors = await this.withRetry(() => this.batch(slice));
       slice.forEach((t, j) => (this.cache[this.key(t)] = vectors[j]!));
       writeFileSync(this.cachePath, JSON.stringify(this.cache));
-      opts.onProgress?.(Math.min(i + MAX_BATCH, missing.length), missing.length);
-      if (i + MAX_BATCH < missing.length && sleepMs > 0) await wait(sleepMs);
+      opts.onProgress?.(Math.min(i + step, missing.length), missing.length);
+      if (i + step < missing.length && sleepMs > 0) await wait(sleepMs);
     }
     return texts.map((t) => this.cache[this.key(t)]!);
   }

@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   GEMINI_DIM, GeminiEmbedder, MAX_BATCH, quotaId, quotaKind, retryAfterMs,
@@ -38,6 +41,39 @@ describe("batch limits", () => {
   test("the API ceiling is stated, not discovered at runtime", () => {
     // 250 comes back as "at most 100 requests can be in one batch".
     expect(MAX_BATCH).toBe(100);
+  });
+
+  // Records the slice sizes embedAll actually asks for, without an API.
+  const spy = (batchSize?: number) => {
+    const sizes: number[] = [];
+    class Spy extends GeminiEmbedder {
+      override async batch(texts: string[]) {
+        sizes.push(texts.length);
+        return texts.map(() => new Array(GEMINI_DIM).fill(0.1));
+      }
+    }
+    const e = new Spy(mkdtempSync(join(tmpdir(), "yt-rag-batch-")), "fake-key");
+    const texts = Array.from({ length: 250 }, (_, i) => `chunk ${i}`);
+    return e.embedAll(texts, { sleepMs: 0, batchSize }).then(() => sizes);
+  };
+
+  test("without a batch size, requests are as large as the API allows", async () => {
+    expect(await spy()).toEqual([100, 100, 50]);
+  });
+
+  test("a smaller batch size is honoured, because quota is spent per text", async () => {
+    // The point of the option: a request asking for more units than the day
+    // has left is refused whole, so 250 texts at 25 is what gets through when
+    // 100 would not.
+    expect(await spy(25)).toEqual(new Array(10).fill(25));
+  });
+
+  test("a batch size above the API ceiling is clamped rather than rejected", async () => {
+    expect(await spy(1000)).toEqual([100, 100, 50]);
+  });
+
+  test("zero would loop forever, so it is floored at one", async () => {
+    expect(await spy(0)).toHaveLength(250);
   });
 });
 
