@@ -451,6 +451,15 @@ windows that name a tool, and it rejects two claims from one author separated
 in time, which `selection_rules` names as the second source of contradictions.
 But it is not close to eighteen.
 
+Two further searches confirmed the shape rather than the number. Mining the
+second source — one author contradicting his own earlier video, which
+`selection_rules` names and nothing was using — added five, and searching by
+subject across every tool instead of by tool added one, the strongest in the
+set: one claim that a million-token window removes the need to compress, denied
+by three authors for three different reasons. Beyond those, every search now
+returns disputes it has already returned. Eleven is what the corpus gave up
+under three relations and four search axes.
+
 The shortfall belongs in comparative questions, and the arithmetic is in
 `pnpm power --contradictions 5`: at 36 + 22 + 5 the pool is 63 and the
 detectable difference widens from 10.5 to 12.5 pp, while 36 + 35 + 5 is 76

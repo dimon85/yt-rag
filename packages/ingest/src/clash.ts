@@ -33,6 +33,8 @@ export type Passage = {
   id: string;
   video: string;
   channel: string;
+  /** ISO date of the video. Only the revision relation uses it, and it is the relation. */
+  published_at: string;
   start_s: number;
   end_s: number;
   text: string;
@@ -143,13 +145,26 @@ export function renderPassages(pro: Passage[], contra: Passage[] = []): string {
  * themselves rather than the ids — the ids are the model's language, and
  * everything downstream wants the span.
  */
-export type Verified = Omit<Clash, "pro" | "contra"> & { pro: Passage; contra: Passage };
+export type Verified = Omit<Clash, "pro" | "contra"> &
+  { pro: Passage; contra: Passage; claimProblem: string | null };
 
 /**
  * The checks both relations need, as one place rather than two.
  *
  * Returns the reason a pair cannot be used, or null when it can.
  */
+/**
+ * Ids as the model wrote them, which is not always as they were given.
+ *
+ * Passages are rendered as `[p12] (channel) text...`, and a model asked to cite
+ * p12 will sometimes cite `[p12]` — the form it saw. One search returned its
+ * only candidate that way and the whole thing was thrown out as an invented
+ * id. Stripping the brackets it copied is not the same as accepting an id that
+ * was never offered: an unknown id still fails, and the rejection still prints
+ * what the model actually said.
+ */
+export const normalizeId = (id: string) => id.trim().replace(/^\[|\]$/g, "").trim();
+
 function rejectionReason(
   claim: string,
   ids: [string, string],
@@ -157,11 +172,39 @@ function rejectionReason(
 ): string | null {
   const [a, b] = resolved;
   if (!a || !b) {
-    const missing = [!a && ids[0], !b && ids[1]].filter(Boolean).join(", ");
+    // Truncated: a model that writes a paragraph into an id field turns this
+    // line into an unreadable wall, and the first 40 characters are enough to
+    // see what it did.
+    const short = (id: string) => (id.length > 40 ? `${id.slice(0, 40)}...` : id);
+    const missing = [!a && short(ids[0]), !b && short(ids[1])].filter(Boolean).join(", ");
     return `cites unknown passage ${missing}`;
   }
   if (a.video === b.video) return `both passages come from one video, ${a.video}`;
+  return null;
+}
+
+/**
+ * What is wrong with how the claim is worded, or null.
+ *
+ * Kept apart from `rejectionReason` after a candidate was thrown away for it.
+ * A claim phrased badly is not a bad pair: the spans, the authors and the dates
+ * can all be right while the sentence is a description of the evidence rather
+ * than the disputed fact. One search returned exactly that — an author saying
+ * a large context window removes the need for compression, against the same
+ * author later saying it did not solve the problem — and the whole candidate
+ * disappeared over the sentence, which is the one part a person rewrites
+ * anyway before the question is written.
+ *
+ * So these are reported next to the candidate instead of deleting it.
+ */
+export function claimProblem(claim: string): string | null {
   if (/\?\s*$/.test(claim)) return "claim is phrased as a question";
+  // "The earlier passage asserts X, while the later passage..." — a report
+  // about the evidence. There is nothing to ask from it, only a note that two
+  // people said things.
+  if (/\b(?:the (?:earlier|later|first|second) passage|passage p?\d|the author (?:claims|asserts|states))\b/i.test(claim)) {
+    return "claim describes the passages instead of stating the disputed fact";
+  }
   return null;
 }
 
@@ -181,15 +224,16 @@ export function verify(
   offered: Passage[],
 ): { kept: Verified[]; rejected: { clash: Clash; reason: string }[] } {
   const byId = new Map(offered.map((p) => [p.id, p]));
+  const find = (id: string) => byId.get(normalizeId(id));
   const kept: Verified[] = [];
   const rejected: { clash: Clash; reason: string }[] = [];
 
   for (const c of clashes) {
-    const pro = byId.get(c.pro);
-    const contra = byId.get(c.contra);
+    const pro = find(c.pro);
+    const contra = find(c.contra);
     const reason = rejectionReason(c.claim, [c.pro, c.contra], [pro, contra]);
     if (reason) rejected.push({ clash: c, reason });
-    else kept.push({ ...c, pro: pro!, contra: contra! });
+    else kept.push({ ...c, pro: pro!, contra: contra!, claimProblem: claimProblem(c.claim) });
   }
   return { kept, rejected };
 }
@@ -204,10 +248,20 @@ export function verify(
  *
  * It is the same machinery as the clash search and a different relation, which
  * is why it lives here. It is also the cheaper half of the shortfall: the set
- * is 14 comparative questions short and 13 contradictions short, and a
+ * was 14 comparative questions short and 13 contradictions short, and a
  * disagreement needs two authors to conflict while this needs only two authors
  * to cover different parts of one thing. The corpus has the second in
  * quantity and, measurably, not much of the first.
+ *
+ * One thing this needs that the question kind does not: two AUTHORS. A
+ * `comparative` question only requires two videos, so a search inside one
+ * channel should work in principle. Run across the six channels with the most
+ * material — 61 to 183 passages each — it returned nothing at all, six times.
+ * An author covering a subject twice restates it or covers it in full, and the
+ * "neither half suffices" test fails. Two people bring genuinely different
+ * halves. So `complement` is cross-author in practice while `revision` is
+ * within-author by definition, and the pairing that looks most flexible on
+ * paper is the one with the narrower source.
  */
 export const ComplementSchema = z.object({
   pairs: z.array(z.object({
@@ -246,7 +300,8 @@ Cite passages ONLY by the ids given. Never invent an id or a timestamp.
 Return an empty list if no pair genuinely needs both halves.
 `.trim();
 
-export type VerifiedComplement = Omit<Complement, "a" | "b"> & { a: Passage; b: Passage };
+export type VerifiedComplement = Omit<Complement, "a" | "b"> &
+  { a: Passage; b: Passage; claimProblem: string | null };
 
 /**
  * As `verify`, plus the check that separates a comparative pair from two
@@ -261,18 +316,19 @@ export function verifyComplements(
   offered: Passage[],
 ): { kept: VerifiedComplement[]; rejected: { pair: Complement; reason: string }[] } {
   const byId = new Map(offered.map((p) => [p.id, p]));
+  const find = (id: string) => byId.get(normalizeId(id));
   const kept: VerifiedComplement[] = [];
   const rejected: { pair: Complement; reason: string }[] = [];
 
   for (const p of pairs) {
-    const a = byId.get(p.a);
-    const b = byId.get(p.b);
+    const a = find(p.a);
+    const b = find(p.b);
     const reason = rejectionReason(p.subject, [p.a, p.b], [a, b])
       ?? (p.a_only.trim() === "" || p.b_only.trim() === ""
         ? "one side contributes nothing the other does not"
         : null);
     if (reason) rejected.push({ pair: p, reason });
-    else kept.push({ ...p, a: a!, b: b! });
+    else kept.push({ ...p, a: a!, b: b!, claimProblem: claimProblem(p.subject) });
   }
   return { kept, rejected };
 }
@@ -289,6 +345,20 @@ const overlaps = (
   a: { video: string; start_s: number; end_s: number },
   b: { video: string; start_s: number; end_s: number },
 ) => a.video === b.video && a.end_s > b.start_s && b.end_s > a.start_s;
+
+/**
+ * Whether any existing question already points at this passage.
+ *
+ * The reason it exists: by the hundredth question, new candidates kept landing
+ * on ground the set already covers. Of seven from one batch of searches, six
+ * overlapped an existing question and five of those on the same subject — not
+ * because the searches were bad but because the corpus's dense, claim-bearing
+ * stretches are now mostly annotated. Skipping them points the search at what
+ * is left, which is the only place a new question can come from.
+ */
+export function touchesGold(p: Passage, questions: Annotated[]): boolean {
+  return questions.some((q) => q.gold.some((g) => overlaps(g, p)));
+}
 
 /**
  * The slug of an existing question this pair would duplicate, or null.
@@ -317,4 +387,111 @@ export function duplicateOf(
     if (hitsA && hitsB) return q.slug;
   }
   return null;
+}
+
+
+// ─── the third relation: one author, later ───────────────────────────────────
+
+/**
+ * A claim an author made, and the same author saying otherwise later.
+ *
+ * `selection_rules` in corpus.yaml names outdated claims as the second source
+ * of contradictions, and the 12-18 month range the corpus was selected over
+ * exists for it — but nothing was mining it. The clash search cannot: it
+ * requires two different authors, because a speaker who qualifies himself
+ * inside one video has not contradicted anyone.
+ *
+ * The constraint that keeps this honest is that the two spans must still be in
+ * two different videos. Same author, different video, later date. A same-video
+ * pair would be satisfied by any retriever returning two adjacent chunks,
+ * which is why every relation here rejects one — and the reason applies
+ * exactly as much when the author is arguing with his past self.
+ */
+export const RevisionSchema = z.object({
+  revisions: z.array(z.object({
+    /** The disputed claim, stated neutrally and not as a question. */
+    claim: z.string().min(10),
+    // Named with the _id suffix after a run put prose in both: "earlier" on
+    // its own reads as "the earlier claim" as easily as "the earlier id", and
+    // three candidates were lost to that reading.
+    /** Id of the passage making the claim first. */
+    earlier_id: z.string(),
+    /** Id of the passage from the same author that later says otherwise. */
+    later_id: z.string(),
+    why: z.string(),
+  })),
+});
+export type Revision = z.infer<typeof RevisionSchema>["revisions"][number];
+
+export const REVISION_PROMPT = `
+You are given passages from several videos by the SAME author, listed oldest
+first with the publication date of each.
+
+Find pairs where the author states something in an earlier video and states
+something incompatible with it in a later one — a limit that changed, a
+recommendation reversed, a capability that arrived or was withdrawn, a claim
+retracted.
+
+This is hard and most pairs do not qualify. Do NOT report:
+- the same claim restated in different words
+- a later video simply covering more ground than an earlier one
+- a topic mentioned twice without an incompatible assertion
+- claims about different tools, versions, or plans
+
+For each real revision, state the disputed claim as a neutral one-line
+proposition: what the earlier passage asserts and the later one denies, taking
+neither side and not reusing the passages' phrasing. Never phrase it as a
+question.
+
+"earlier_id" and "later_id" take an id and nothing else — "p12", not a
+description of the passage.
+
+Cite passages ONLY by the ids given. Never invent an id or a timestamp.
+Return an empty list if the author never changed position.
+`.trim();
+
+/** The passages with their dates, oldest first, for a revision search. */
+export function renderDated(passages: Passage[]): string {
+  const ordered = [...passages].sort((a, b) => a.published_at.localeCompare(b.published_at));
+  return `PASSAGES:\n${
+    ordered.map((p) => `[${p.id}] (${p.published_at}) ${p.text}`).join("\n\n")
+  }`;
+}
+
+export type VerifiedRevision = Omit<Revision, "earlier_id" | "later_id"> &
+  { earlier: Passage; later: Passage; claimProblem: string | null };
+
+/**
+ * As the other two, plus the two checks this relation is made of: one author,
+ * and the correction genuinely after the claim.
+ *
+ * The direction is checked rather than trusted. The model is given the dates
+ * and can still return the pair the wrong way round, and a reversed pair reads
+ * as a correction that never happened — which would put the `pro` and `contra`
+ * labels on the wrong spans and quietly invert the question.
+ */
+export function verifyRevisions(
+  revisions: Revision[],
+  offered: Passage[],
+): { kept: VerifiedRevision[]; rejected: { revision: Revision; reason: string }[] } {
+  const byId = new Map(offered.map((p) => [p.id, p]));
+  const find = (id: string) => byId.get(normalizeId(id));
+  const kept: VerifiedRevision[] = [];
+  const rejected: { revision: Revision; reason: string }[] = [];
+
+  for (const r of revisions) {
+    const earlier = find(r.earlier_id);
+    const later = find(r.later_id);
+    let reason = rejectionReason(r.claim, [r.earlier_id, r.later_id], [earlier, later]);
+    if (!reason && earlier && later) {
+      if (earlier.channel !== later.channel) {
+        reason = `different authors, ${earlier.channel} and ${later.channel} — that is a clash, not a revision`;
+      } else if (later.published_at <= earlier.published_at) {
+        reason = `the cited later passage is not later: ${later.published_at} against ${earlier.published_at}`;
+      }
+    }
+    if (reason) rejected.push({ revision: r, reason });
+    else kept.push({ ...r, earlier: earlier!, later: later!, claimProblem: claimProblem(r.claim) });
+  }
+  return { kept, rejected };
 }

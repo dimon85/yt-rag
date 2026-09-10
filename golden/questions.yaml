@@ -1,4 +1,4 @@
-# Version 15: 89 questions (5 contradictions, every one of them cross-author)
+# Version 22: 104 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 15
+version: 22
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1467,3 +1467,473 @@ questions:
           David Ondrej on the cost: "Hermes is the newest project... going to
           have the most bugs, going to have the most unpolished things", the
           terminal interface still rough. Also names the migration command.
+
+  # ── contradictions, batch 3: one author, changing position ──────────────────
+  # Found with `pnpm pairs --relation revision`, which reads one channel's
+  # videos in date order. corpus.yaml's selection_rules names outdated claims as
+  # the second source of contradictions and the 12-18 month range exists for it,
+  # but nothing was mining it: the clash search requires two different authors,
+  # by design, because a speaker qualifying himself inside one video has not
+  # contradicted anyone.
+  #
+  # The two spans still come from two different videos, so the metric is not
+  # weakened. A same-video pair would be satisfied by any retriever returning
+  # two adjacent chunks, and that reason holds exactly as well when the author
+  # is arguing with his past self.
+
+  - slug: opus-code-quality-retraction
+    text: Does the strongest Claude model write better code than an average developer?
+    kind: contradiction
+    topics:
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: Y8cY1DEURtE
+        start_s: 986.76
+        end_s: 1082.28
+        side: pro
+        note: >
+          Theo, 2026-07-28: "since Opus 4.5... The average person writes worse
+          code than the average thing using Opus 4.5 or newer."
+      - video: Q7n0PGbMW_U
+        start_s: 357.96
+        end_s: 451.32
+        side: contra
+        note: >
+          Theo, 2026-08-31, retracting it in as many words: "Opus and Sonnet...
+          are just not good right now. I thought Opus would be good. I was
+          wrong... I am sorry for saying it was good when it's not." The
+          clearest revision in the corpus, because the author marks it as one.
+
+  - slug: subscription-subsidy-dispute
+    text: Are the monthly plans sold below what the usage costs, or does the API simply
+      carry a large markup?
+    kind: contradiction
+    topics:
+      - cost
+    tools:
+      - claude-code
+      - codex
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 358.16
+        end_s: 452.56
+        side: pro
+        note: >
+          David Ondrej, 2026-09-02: "OpenAI has more compute. They're willing to
+          subsidize it more... do not pay API pricing... there is no subsidy."
+      - video: 40ikbH0Ba-g
+        start_s: 1618.4
+        end_s: 1712.4
+        side: contra
+        note: >
+          The same author, 2026-06-29, denying it: "a lot of people think
+          they're subsidized... Actually, that's not really the case. The case
+          is that they just have disgusting profit margins on the API." Here the
+          contra span is the earlier one — a revision does not always run from
+          denial to assertion.
+
+  - slug: hidden-reasoning-extractable
+    text: Can anyone get at the reasoning a model hides before it answers?
+    kind: contradiction
+    topics:
+      - context-window
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: r_dw-1109Ag
+        start_s: 1077.64
+        end_s: 1172.12
+        side: pro
+        note: >
+          Theo, 2026-09-03: "There were tricks you could do to try and get them
+          out though, like if you edit earlier in the history..." — described
+          while explaining that the trick has since been blocked.
+      - video: ypO0q_8zhWw
+        start_s: 1616.64
+        end_s: 1712.24
+        side: contra
+        note: >
+          The same author, 2026-06-30, stating it as impossible: "we can't see
+          them. We just have to trust them... all of this information is hidden
+          from us. You don't see the reasoning traces."
+
+  - slug: scheduled-task-trust
+    text: Can an agent be left to run something on a schedule every day without being
+      watched?
+    kind: contradiction
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - codex
+      - claude-code
+    source: hand
+    gold:
+      - video: ubzhh4kMCLo
+        start_s: 266.24
+        end_s: 363.44
+        side: pro
+        note: >
+          Riley Brown, 2026-09-04, running one: a daily 8am automation that
+          reads his mail, writes a database and emails a second person to hold
+          him to it.
+      - video: P1KpxzLVg7c
+        start_s: 2246.32
+        end_s: 2342.12
+        side: contra
+        note: >
+          The same author, 2026-07-29: "I just don't have trust in my AI agent
+          team... sometimes it doesn't fire off", and the 9am task that "listed
+          out the task instead of doing the task". Overlaps the gold span of
+          agent-scheduled-action-failure, which asks what went wrong rather
+          than whether it can be relied on now.
+
+  - slug: image-snapshot-testing-value
+    text: Are image snapshots a good way to check that a graphical program still draws
+      the same thing?
+    kind: contradiction
+    topics:
+      - testing
+      - reliability
+    tools: []
+    source: hand
+    gold:
+      - video: G8vdu30EEfw
+        start_s: 268.32
+        end_s: 365.24
+        side: pro
+        note: >
+          ThePrimeagen, 2026-07-17: "I can take all the photos, and everything
+          looks beautiful... I've been very happy with this approach. I'm
+          actually loving it very, very much so."
+      - video: tYQyh1tjSFc
+        start_s: 87.8
+        end_s: 185.32
+        side: contra
+        note: >
+          The same author, 2026-08-06, naming the earlier claim to retract it:
+          "remember how last time I said... the snapshots are going to be
+          awesome... No, they were not fantastic. I found them to be difficult
+          and cumbersome", with a VM producing different pixels. The set's
+          first question on `testing`, which had no contradiction until now.
+
+  # ── comparative, batch 3 ────────────────────────────────────────────────────
+  # `pnpm pairs --relation complement --topic X`, which searches a subject
+  # across every tool instead of a tool across every subject. Eleven candidates;
+  # five written. Four were dropped for being outside what this corpus is about
+  # — a geopolitical argument about distillation, a security incident, a model's
+  # token counts — and two for spans the ad filter flagged.
+  #
+  # A sixth was held back deliberately: human review against programmatic
+  # verifiers, whose first span is the same 96 seconds as
+  # subagent-fresh-context-tradeoff below. Two questions sharing a gold span
+  # score together, and a paired comparison assumes they do not. Better one
+  # short of the target than two questions that half-move as one.
+
+  - slug: subagent-fresh-context-tradeoff
+    text: What do you lose by giving a sub-agent a clean slate instead of everything
+      the main agent knows?
+    kind: comparative
+    topics:
+      - context-window
+      - autonomy
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: zbmuiaPuiNM
+        start_s: 716.24
+        end_s: 812.4
+        note: >
+          Cole Medin on why the split is wanted: planning and coding go in two
+          sessions because the planning agent "is going to build up a lot of
+          context... you want to avoid context rot and a lot of bias".
+      - video: 7B2HJr0Y68g
+        start_s: 1527.28
+        end_s: 1624.4
+        note: >
+          IndyDevDan on the bill for it: "by definition, every sub agent having
+          its own context means that there is no context history... it's
+          literally like calling a one-shot prompt", and they are hard to debug.
+
+  - slug: compaction-control
+    text: What can you actually control about how an agent shortens its history when
+      it runs out of room?
+    kind: comparative
+    topics:
+      - context-window
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: EHlqRx0r4BI
+        start_s: 623.6
+        end_s: 722.44
+        note: >
+          David Ondrej on when: the compression threshold, "0.5 is the default.
+          That's like half of your context window. I think that's a bit
+          passive. I would recommend something like 0.7."
+      - video: r_dw-1109Ag
+        start_s: 2155.48
+        end_s: 2251.64
+        note: >
+          Theo on what: "you can tell the model what should be preserved in
+          compact summaries... you can steer what it decides to keep". The
+          other span says nothing about the contents.
+
+  - slug: subscription-limit-reason
+    text: Why would a company tighten the limits on its own paid plans, and what does
+      that do to people using it through other tools?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: Q7n0PGbMW_U
+        start_s: 716.52
+        end_s: 812.56
+        note: >
+          Theo on the business reason: enterprise API sales are paid per use
+          and barely subsidised, so "the subscriptions are now a loss leader
+          that is restricting compute from being available for the API sales
+          they want to make", especially during the business day.
+      - video: 8IDzBRRFnQU
+        start_s: 716.8
+        end_s: 811.92
+        note: >
+          IndyDevDan on the consequence for users: third-party harnesses are
+          "not clear at all", and the complaint is not the constraint but the
+          silence — "what we can blame them for is not being clear on exactly
+          how we can use the subscription".
+
+  - slug: local-model-hardware-cost
+    text: What does it cost to run a large model on your own machines, and can you
+      start small and grow?
+    kind: comparative
+    topics:
+      - cost
+    tools: []
+    source: hand
+    gold:
+      - video: cFYdiynrxpQ
+        start_s: 987.0
+        end_s: 1083.12
+        note: >
+          IndyDevDan's price tiers: 2-4k gives "a very slow 6 to 11 tokens per
+          second... unrunnable", the usable tier needs stacked Mac Studios or
+          DGX Sparks, and the comfortable one is "50 to 100,000 dollars".
+      - video: fuECuGW_Eeo
+        start_s: 987.6
+        end_s: 1086.4
+        note: >
+          David Ondrej on the half the tiers do not show — starting small and
+          scaling later "is not possible", because adding GPUs later means
+          workstation or server boards from the start and "at least 7, $8,000
+          on RAM alone".
+
+  - slug: per-task-cost-gap
+    text: How can a model that charges more per token still cost less to finish a job?
+    kind: comparative
+    topics:
+      - cost
+    tools:
+      - codex
+      - claude-code
+    source: hand
+    gold:
+      - video: wAPDmc8e22U
+        start_s: 717.36
+        end_s: 813.12
+        note: >
+          Matthew Berman shows the gap without explaining it: "$1.80 per task
+          completed versus 6 cents" at comparable intelligence.
+      - video: ypO0q_8zhWw
+        start_s: 986.8
+        end_s: 1083.76
+        note: >
+          Theo gives the mechanism: reasoning efficiency, "all falling under
+          50k tokens" against over 100k for others, so that a doubled per-token
+          price still lands lower per task.
+
+  - slug: big-context-ends-compression
+    text: With a million tokens to fill, is there still any reason to trim what you
+      send the model?
+    kind: contradiction
+    topics:
+      - context-window
+      - cost
+    tools: []
+    source: hand
+    gold:
+      # One claim and three authors denying it for three different reasons —
+      # the effective window, the bill, and context rot. The strongest
+      # contradiction in the corpus, and it took searching by topic across all
+      # tools to see: every earlier search was anchored to one tool, and this
+      # argument is not about a tool.
+      - video: 7AmhgMAJIT4
+        start_s: 536.8
+        end_s: 633.04
+        side: pro
+        note: >
+          Greg Kamradt: "now we have a million token input context window. We
+          have prompts that are really cheap... some of the things that we held
+          true in terms of compressing knowledge and context, we no longer hold
+          true... maybe you don't need to be compressing context at all."
+      - video: 3wglqgskzjQ
+        start_s: 177.72
+        end_s: 271.68
+        side: contra
+        note: >
+          AI Jason, on the number being nominal: "even though today's modern
+          model has a 1 million context window, the actual effective context
+          window is just somewhere between 128k to 200k. So you almost always
+          want to optimize what goes into context window."
+      - video: IjiaCOt7bP8
+        start_s: 897.24
+        end_s: 973.68
+        side: contra
+        note: >
+          Sam Witteveen, on the bill: "I'm seeing people just throw out best
+          practices that have been around for years... in this day and age
+          where you're paying quite a lot of money for using these tokens, you
+          really want to be able to save as much as you can."
+      - video: zbmuiaPuiNM
+        start_s: 896.48
+        end_s: 993.84
+        side: contra
+        note: >
+          Cole Medin, on a reason neither of the others gives: "Context is your
+          most precious resource... both for the sake of cost and avoiding
+          context rot. We don't want to fill the window of our LLM too much
+          because LLMs get overwhelmed with information just like people do."
+
+  # Deliberately past the target of 22. `pnpm power` says only the pool total
+  # governs what a paired comparison can detect, and the split between the three
+  # kinds is a budget: at 36+22+11 the pool is 69 and the detectable difference
+  # 11.5 pp, while 36+23+11 is 70 and 11.5 pp. Contradictions are the line item
+  # the corpus may not fill — every search now returns disputes it has already
+  # returned — and a comparative question asks less of it, so the shortfall
+  # moves here rather than shrinking the instrument.
+
+  - slug: subagent-dispatch-control
+    text: Who decides which model a delegated task runs on, and what does a working
+      setup look like?
+    kind: comparative
+    topics:
+      - autonomy
+      - cost
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 2697.44
+        end_s: 2792.96
+        note: >
+          David Ondrej on keeping the choice: "I don't really like to have my
+          agents randomly launching other agents... a lot of these apps, they
+          delegated to a trash model... I want to select which model runs in
+          the sub agent."
+      - video: f8cfH5XX-XU
+        start_s: 1797.04
+        end_s: 1893.92
+        note: >
+          IndyDevDan running the thing the other span is wary of: a named team —
+          scout, planner, builder, reviewer, documenter, red team — that a
+          primary agent dispatches, with the scout finding files before the
+          builder is called.
+
+  - slug: destructive-action-guards
+    text: How do you stop an agent doing something you cannot undo?
+    kind: comparative
+    topics:
+      - reliability
+      - testing
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 2966.48
+        end_s: 3063.04
+        note: >
+          David Ondrej takes it away at the database: a read-only Postgres role,
+          because "all it takes is one issue and it deletes a user or wipes a
+          table, some irreversible change".
+      - video: msfMqW92Y8Q
+        start_s: 1257.72
+        end_s: 1352.96
+        note: >
+          Cole Medin takes it away at the tool call: pre-tool hooks that refuse
+          to read .env or run a recursive force delete, and one that blocks an
+          edit to a file coupled to files the agent has not read. Rules are not
+          guarantees; hooks are.
+
+  - slug: scaling-agents-bottleneck
+    text: What actually stops you running a lot of agents at once?
+    kind: comparative
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - claude-code
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 446.32
+        end_s: 542.24
+        note: >
+          David Ondrej on the machine: "You cannot run hundreds of agents at
+          once because your computer will probably not handle it. All it takes
+          is a couple of agents to decide to run database tests at the same
+          time" — plus lost sessions when the laptop closes.
+      - video: ulNsa0sD8N0
+        start_s: 716.72
+        end_s: 812.32
+        note: >
+          Cole Medin on the model, a limit no amount of hardware moves: "if you
+          send too much into the LLM at once, it is going to fall flat on its
+          face", which is why the work is split across orchestrated sessions
+          rather than handed to one.
+
+  - slug: third-party-margin-forces
+    text: Is it getting easier or harder to sell a product built on somebody else's
+      models?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: hand
+    gold:
+      - video: N80TzPCHbNg
+        start_s: 1017.84
+        end_s: 1083.92
+        note: >
+          Matthew Berman on the force that helps: more competition among model
+          providers means "when developers and startups have more cheaper AI to
+          use, of course, their margins go up", while the closed model layer is
+          the one being squeezed.
+      - video: jKCjLzjmiaA
+        start_s: 1318.32
+        end_s: 1383.92
+        note: >
+          Theo on the force that hurts, from inside a product that lost to it:
+          "we can't provide the same level of subsidization that the labs do...
+          A prompt on T3 chat might cost us $2 and the same prompt on chat GPT
+          costs them 20. How do we win there? We can't." The same 70-90% margins
+          the other span calls a weakness are what pay for the subsidy.

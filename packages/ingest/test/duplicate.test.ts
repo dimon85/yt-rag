@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { type Annotated, duplicateOf, type Passage } from "../src/clash.ts";
+import { type Annotated, duplicateOf, type Passage, touchesGold } from "../src/clash.ts";
 
 const p = (video: string, start_s: number, end_s: number): Passage =>
-  ({ id: "x", video, channel: "Someone", start_s, end_s, text: "" });
+  ({ id: "x", video, channel: "Someone", published_at: "2026-01-01", start_s, end_s, text: "" });
 
 const q = (slug: string, spans: [string, number, number][]): Annotated => ({
   slug,
@@ -63,5 +63,33 @@ describe("spread across questions", () => {
 
   test("an empty set matches nothing", () => {
     expect(duplicateOf(p("vidA", 1, 2), p("vidB", 1, 2), [])).toBeNull();
+  });
+});
+
+describe("ground the set already covers", () => {
+  // By the hundredth question, six of seven new candidates overlapped an
+  // existing question and five of those on the same subject — the corpus's
+  // dense stretches are annotated, and a search that keeps returning them
+  // wastes the only expensive part of the process, which is reading.
+  const set = [q("asked", [["vidA", 100, 200]])];
+
+  test("a passage an existing question points at is not fresh", () => {
+    expect(touchesGold(p("vidA", 150, 250), set)).toBe(true);
+  });
+
+  test("a passage elsewhere in the same video is fresh", () => {
+    expect(touchesGold(p("vidA", 900, 1000), set)).toBe(false);
+  });
+
+  test("a passage in an unannotated video is fresh", () => {
+    expect(touchesGold(p("vidZ", 100, 200), set)).toBe(false);
+  });
+
+  test("touching at an endpoint is not overlapping", () => {
+    expect(touchesGold(p("vidA", 200, 300), set)).toBe(false);
+  });
+
+  test("questions without gold spans annotate nothing", () => {
+    expect(touchesGold(p("vidA", 150, 160), [q("negative", [])])).toBe(false);
   });
 });
