@@ -1,4 +1,4 @@
-# Version 18: 99 questions (5 contradictions, every one of them cross-author)
+# Version 20: 102 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 18
+version: 20
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1765,3 +1765,118 @@ questions:
           Theo gives the mechanism: reasoning efficiency, "all falling under
           50k tokens" against over 100k for others, so that a doubled per-token
           price still lands lower per task.
+
+  - slug: big-context-ends-compression
+    text: With a million tokens to fill, is there still any reason to trim what you
+      send the model?
+    kind: contradiction
+    topics:
+      - context-window
+      - cost
+    tools: []
+    source: hand
+    gold:
+      # One claim and three authors denying it for three different reasons —
+      # the effective window, the bill, and context rot. The strongest
+      # contradiction in the corpus, and it took searching by topic across all
+      # tools to see: every earlier search was anchored to one tool, and this
+      # argument is not about a tool.
+      - video: 7AmhgMAJIT4
+        start_s: 536.8
+        end_s: 633.04
+        side: pro
+        note: >
+          Greg Kamradt: "now we have a million token input context window. We
+          have prompts that are really cheap... some of the things that we held
+          true in terms of compressing knowledge and context, we no longer hold
+          true... maybe you don't need to be compressing context at all."
+      - video: 3wglqgskzjQ
+        start_s: 177.72
+        end_s: 271.68
+        side: contra
+        note: >
+          AI Jason, on the number being nominal: "even though today's modern
+          model has a 1 million context window, the actual effective context
+          window is just somewhere between 128k to 200k. So you almost always
+          want to optimize what goes into context window."
+      - video: IjiaCOt7bP8
+        start_s: 897.24
+        end_s: 973.68
+        side: contra
+        note: >
+          Sam Witteveen, on the bill: "I'm seeing people just throw out best
+          practices that have been around for years... in this day and age
+          where you're paying quite a lot of money for using these tokens, you
+          really want to be able to save as much as you can."
+      - video: zbmuiaPuiNM
+        start_s: 896.48
+        end_s: 993.84
+        side: contra
+        note: >
+          Cole Medin, on a reason neither of the others gives: "Context is your
+          most precious resource... both for the sake of cost and avoiding
+          context rot. We don't want to fill the window of our LLM too much
+          because LLMs get overwhelmed with information just like people do."
+
+  # Deliberately past the target of 22. `pnpm power` says only the pool total
+  # governs what a paired comparison can detect, and the split between the three
+  # kinds is a budget: at 36+22+11 the pool is 69 and the detectable difference
+  # 11.5 pp, while 36+23+11 is 70 and 11.5 pp. Contradictions are the line item
+  # the corpus may not fill — every search now returns disputes it has already
+  # returned — and a comparative question asks less of it, so the shortfall
+  # moves here rather than shrinking the instrument.
+
+  - slug: subagent-dispatch-control
+    text: Who decides which model a delegated task runs on, and what does a working
+      setup look like?
+    kind: comparative
+    topics:
+      - autonomy
+      - cost
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 2697.44
+        end_s: 2792.96
+        note: >
+          David Ondrej on keeping the choice: "I don't really like to have my
+          agents randomly launching other agents... a lot of these apps, they
+          delegated to a trash model... I want to select which model runs in
+          the sub agent."
+      - video: f8cfH5XX-XU
+        start_s: 1797.04
+        end_s: 1893.92
+        note: >
+          IndyDevDan running the thing the other span is wary of: a named team —
+          scout, planner, builder, reviewer, documenter, red team — that a
+          primary agent dispatches, with the scout finding files before the
+          builder is called.
+
+  - slug: destructive-action-guards
+    text: How do you stop an agent doing something you cannot undo?
+    kind: comparative
+    topics:
+      - reliability
+      - testing
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 2966.48
+        end_s: 3063.04
+        note: >
+          David Ondrej takes it away at the database: a read-only Postgres role,
+          because "all it takes is one issue and it deletes a user or wipes a
+          table, some irreversible change".
+      - video: msfMqW92Y8Q
+        start_s: 1257.72
+        end_s: 1352.96
+        note: >
+          Cole Medin takes it away at the tool call: pre-tool hooks that refuse
+          to read .env or run a recursive force delete, and one that blocks an
+          edit to a file coupled to files the agent has not read. Rules are not
+          guarantees; hooks are.
