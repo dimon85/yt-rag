@@ -1,5 +1,7 @@
-# Raw transcripts — fetched once, never committed (spec: cache/)
-cache/
+# Raw transcripts and embedding caches — fetched once, never committed.
+# No trailing slash: a git worktree has no cache of its own and gets one as a
+# symlink into the main checkout, and `cache/` matches a directory only.
+cache
 
 # Node
 node_modules/
