@@ -15,7 +15,7 @@ dist/
 
 # Logs, run artifacts
 *.log
-runs/*.jsonl
+runs/
 
 # OS
 .DS_Store
