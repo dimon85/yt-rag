@@ -40,12 +40,15 @@ describe("what a comparative pair has to be", () => {
       .toMatch(/unknown passage p99/);
   });
 
-  test("a subject phrased as a question is rejected", () => {
+  test("a subject phrased as a question is flagged, not thrown away", () => {
     // Same reason as for clashes: the question gets written from the subject
     // afterwards, with the passage out of view. A subject handed over already
-    // phrased as a question invites lifting it verbatim.
+    // phrased as a question invites lifting it verbatim — but the pair behind
+    // it may be perfectly good, so the wording is reported, not fatal.
     const q = pair({ subject: "How do you keep tool definitions out of context?" });
-    expect(verifyComplements([q], offered).rejected[0]!.reason).toMatch(/question/);
+    const { kept, rejected } = verifyComplements([q], offered);
+    expect(rejected).toEqual([]);
+    expect(kept[0]!.claimProblem).toMatch(/question/);
   });
 
   test("a pair where one side contributes nothing is rejected", () => {

@@ -36,7 +36,8 @@ usage: pnpm pairs --tool ID [--relation R] [--topic ID] [--sides S] [--contra S]
                 own earlier video, which corpus.yaml names as the second source
                 of contradictions and nothing was mining; it needs --channel.
   --channel N   restrict to one channel, exactly as named in corpus.yaml
-  --tool ID     tool the pair must be about (required)
+  --tool ID     tool the pair must be about. Required unless --channel or
+                --topic narrows the search instead
   --topic ID    restrict to passages matching the topic's spoken keywords
   --sides S     stance | any (default stance)
                 stance splits passages by channel stance and tells the model
@@ -117,8 +118,13 @@ type Sourced = Passage & { segments: Segment[] };
  * in each neighbourhood, and the densest passage is the one every retriever
  * already finds. A clash is more likely to sit in an ordinary aside.
  */
-function passagesFor(tool: string, topic?: string): { pro: Sourced[]; contra: Sourced[] } {
-  const toolDef = cfg.tools.find((t) => t.id === tool) ?? usage(`unknown tool ${tool}`);
+function passagesFor(tool: string | undefined, topic?: string): { pro: Sourced[]; contra: Sourced[] } {
+  // Optional, so a revision search can read everything one author said. The
+  // tool filter is what made the first pass miss most of a channel: a claim
+  // and its later retraction need not both name the tool they are about.
+  const toolDef = tool
+    ? cfg.tools.find((t) => t.id === tool) ?? usage(`unknown tool ${tool}`)
+    : undefined;
   const topicDef = topic
     ? cfg.topics.find((t) => t.id === topic) ?? usage(`unknown topic ${topic}`)
     : undefined;
@@ -141,7 +147,7 @@ function passagesFor(tool: string, topic?: string): { pro: Sourced[]; contra: So
 
     for (const w of tile(segments, widthS)) {
       const normalized = normalizeTranscript(w.segments);
-      if (!toolDef.aliases.some((a) => hasPhrase(normalized, a))) continue;
+      if (toolDef && !toolDef.aliases.some((a) => hasPhrase(normalized, a))) continue;
       if (topicDef && !topicDef.keywords.some((k) => hasPhrase(normalized, k))) continue;
       side.push({
         id: `${side === pro ? "p" : "c"}${side.length + 1}`,
@@ -204,7 +210,9 @@ if (values.cells) {
 
 // ─── find ────────────────────────────────────────────────────────────────────
 
-if (!values.tool) usage("--tool is required");
+if (!values.tool && !values.channel && !values.topic) {
+  usage("--tool is required, unless --channel or --topic narrows the search");
+}
 
 if (revision && !values.channel) {
   // A revision is defined within one author, so pooling every channel would
@@ -223,7 +231,7 @@ const pro = rank(all.pro).slice(0, perSide);
 const contra = rank(all.contra).slice(0, perSide);
 
 console.log(
-  `${values.tool}${values.topic ? ` / ${values.topic}` : ""}` +
+  `${values.tool ?? "all tools"}${values.topic ? ` / ${values.topic}` : ""}` +
   `${values.channel ? ` / ${values.channel}` : ""}: ` +
   (pooled
     ? `${pro.length} passages of ${all.pro.length}, pooled`
@@ -390,6 +398,7 @@ if (revision) {
   for (const r of kept) {
     const already = dupe(r.earlier, r.later);
     console.log(r.claim);
+    if (r.claimProblem) console.log(`  RESTATE: ${r.claimProblem}`);
     if (already) console.log(`  ALREADY ASKED as ${already}`);
     console.log(`  ${r.why}`);
     console.log(`  earlier ${r.earlier.published_at}  ${where(r.earlier)}`);
@@ -404,7 +413,9 @@ if (revision) {
   console.log(`\n${proposed} proposed, ${verified} verified\n`);
   for (const c of kept) {
     const already = dupe(c.a, c.b);
-    console.log(already ? `${c.subject}\n  ALREADY ASKED as ${already}` : c.subject);
+    console.log(c.subject);
+    if (c.claimProblem) console.log(`  RESTATE: ${c.claimProblem}`);
+    if (already) console.log(`  ALREADY ASKED as ${already}`);
     console.log(`  a only  ${c.a_only}`);
     console.log(`  b only  ${c.b_only}`);
     console.log(`  a       ${where(c.a)}`);
@@ -420,6 +431,7 @@ if (revision) {
   for (const c of kept) {
     const already = dupe(c.pro, c.contra);
     console.log(`${c.directness.toUpperCase()}  ${c.claim}`);
+    if (c.claimProblem) console.log(`  RESTATE: ${c.claimProblem}`);
     if (already) console.log(`  ALREADY ASKED as ${already}`);
     console.log(`  ${c.why}`);
     console.log(`  pro     ${where(c.pro)}`);

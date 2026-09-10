@@ -66,9 +66,11 @@ describe("what a revision is", () => {
       .toMatch(/unknown passage l9/);
   });
 
-  test("a claim phrased as a question is rejected", () => {
+  test("a claim phrased as a question is flagged, not thrown away", () => {
     const q = rev({ claim: "Does the weekly limit apply to every model?" });
-    expect(verifyRevisions([q], offered).rejected[0]!.reason).toMatch(/question/);
+    const { kept, rejected } = verifyRevisions([q], offered);
+    expect(rejected).toEqual([]);
+    expect(kept[0]!.claimProblem).toMatch(/question/);
   });
 
   test("same day is not later", () => {

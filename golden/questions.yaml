@@ -1,4 +1,4 @@
-# Version 16: 92 questions (5 contradictions, every one of them cross-author)
+# Version 18: 99 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 16
+version: 18
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1563,3 +1563,205 @@ questions:
           The same author, 2026-06-30, stating it as impossible: "we can't see
           them. We just have to trust them... all of this information is hidden
           from us. You don't see the reasoning traces."
+
+  - slug: scheduled-task-trust
+    text: Can an agent be left to run something on a schedule every day without being
+      watched?
+    kind: contradiction
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - codex
+      - claude-code
+    source: hand
+    gold:
+      - video: ubzhh4kMCLo
+        start_s: 266.24
+        end_s: 363.44
+        side: pro
+        note: >
+          Riley Brown, 2026-09-04, running one: a daily 8am automation that
+          reads his mail, writes a database and emails a second person to hold
+          him to it.
+      - video: P1KpxzLVg7c
+        start_s: 2246.32
+        end_s: 2342.12
+        side: contra
+        note: >
+          The same author, 2026-07-29: "I just don't have trust in my AI agent
+          team... sometimes it doesn't fire off", and the 9am task that "listed
+          out the task instead of doing the task". Overlaps the gold span of
+          agent-scheduled-action-failure, which asks what went wrong rather
+          than whether it can be relied on now.
+
+  - slug: image-snapshot-testing-value
+    text: Are image snapshots a good way to check that a graphical program still draws
+      the same thing?
+    kind: contradiction
+    topics:
+      - testing
+      - reliability
+    tools: []
+    source: hand
+    gold:
+      - video: G8vdu30EEfw
+        start_s: 268.32
+        end_s: 365.24
+        side: pro
+        note: >
+          ThePrimeagen, 2026-07-17: "I can take all the photos, and everything
+          looks beautiful... I've been very happy with this approach. I'm
+          actually loving it very, very much so."
+      - video: tYQyh1tjSFc
+        start_s: 87.8
+        end_s: 185.32
+        side: contra
+        note: >
+          The same author, 2026-08-06, naming the earlier claim to retract it:
+          "remember how last time I said... the snapshots are going to be
+          awesome... No, they were not fantastic. I found them to be difficult
+          and cumbersome", with a VM producing different pixels. The set's
+          first question on `testing`, which had no contradiction until now.
+
+  # ── comparative, batch 3 ────────────────────────────────────────────────────
+  # `pnpm pairs --relation complement --topic X`, which searches a subject
+  # across every tool instead of a tool across every subject. Eleven candidates;
+  # five written. Four were dropped for being outside what this corpus is about
+  # — a geopolitical argument about distillation, a security incident, a model's
+  # token counts — and two for spans the ad filter flagged.
+  #
+  # A sixth was held back deliberately: human review against programmatic
+  # verifiers, whose first span is the same 96 seconds as
+  # subagent-fresh-context-tradeoff below. Two questions sharing a gold span
+  # score together, and a paired comparison assumes they do not. Better one
+  # short of the target than two questions that half-move as one.
+
+  - slug: subagent-fresh-context-tradeoff
+    text: What do you lose by giving a sub-agent a clean slate instead of everything
+      the main agent knows?
+    kind: comparative
+    topics:
+      - context-window
+      - autonomy
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: zbmuiaPuiNM
+        start_s: 716.24
+        end_s: 812.4
+        note: >
+          Cole Medin on why the split is wanted: planning and coding go in two
+          sessions because the planning agent "is going to build up a lot of
+          context... you want to avoid context rot and a lot of bias".
+      - video: 7B2HJr0Y68g
+        start_s: 1527.28
+        end_s: 1624.4
+        note: >
+          IndyDevDan on the bill for it: "by definition, every sub agent having
+          its own context means that there is no context history... it's
+          literally like calling a one-shot prompt", and they are hard to debug.
+
+  - slug: compaction-control
+    text: What can you actually control about how an agent shortens its history when
+      it runs out of room?
+    kind: comparative
+    topics:
+      - context-window
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: EHlqRx0r4BI
+        start_s: 623.6
+        end_s: 722.44
+        note: >
+          David Ondrej on when: the compression threshold, "0.5 is the default.
+          That's like half of your context window. I think that's a bit
+          passive. I would recommend something like 0.7."
+      - video: r_dw-1109Ag
+        start_s: 2155.48
+        end_s: 2251.64
+        note: >
+          Theo on what: "you can tell the model what should be preserved in
+          compact summaries... you can steer what it decides to keep". The
+          other span says nothing about the contents.
+
+  - slug: subscription-limit-reason
+    text: Why would a company tighten the limits on its own paid plans, and what does
+      that do to people using it through other tools?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: Q7n0PGbMW_U
+        start_s: 716.52
+        end_s: 812.56
+        note: >
+          Theo on the business reason: enterprise API sales are paid per use
+          and barely subsidised, so "the subscriptions are now a loss leader
+          that is restricting compute from being available for the API sales
+          they want to make", especially during the business day.
+      - video: 8IDzBRRFnQU
+        start_s: 716.8
+        end_s: 811.92
+        note: >
+          IndyDevDan on the consequence for users: third-party harnesses are
+          "not clear at all", and the complaint is not the constraint but the
+          silence — "what we can blame them for is not being clear on exactly
+          how we can use the subscription".
+
+  - slug: local-model-hardware-cost
+    text: What does it cost to run a large model on your own machines, and can you
+      start small and grow?
+    kind: comparative
+    topics:
+      - cost
+    tools: []
+    source: hand
+    gold:
+      - video: cFYdiynrxpQ
+        start_s: 987.0
+        end_s: 1083.12
+        note: >
+          IndyDevDan's price tiers: 2-4k gives "a very slow 6 to 11 tokens per
+          second... unrunnable", the usable tier needs stacked Mac Studios or
+          DGX Sparks, and the comfortable one is "50 to 100,000 dollars".
+      - video: fuECuGW_Eeo
+        start_s: 987.6
+        end_s: 1086.4
+        note: >
+          David Ondrej on the half the tiers do not show — starting small and
+          scaling later "is not possible", because adding GPUs later means
+          workstation or server boards from the start and "at least 7, $8,000
+          on RAM alone".
+
+  - slug: per-task-cost-gap
+    text: How can a model that charges more per token still cost less to finish a job?
+    kind: comparative
+    topics:
+      - cost
+    tools:
+      - codex
+      - claude-code
+    source: hand
+    gold:
+      - video: wAPDmc8e22U
+        start_s: 717.36
+        end_s: 813.12
+        note: >
+          Matthew Berman shows the gap without explaining it: "$1.80 per task
+          completed versus 6 cents" at comparable intelligence.
+      - video: ypO0q_8zhWw
+        start_s: 986.8
+        end_s: 1083.76
+        note: >
+          Theo gives the mechanism: reasoning efficiency, "all falling under
+          50k tokens" against over 100k for others, so that a doubled per-token
+          price still lands lower per task.

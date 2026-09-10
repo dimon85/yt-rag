@@ -145,7 +145,8 @@ export function renderPassages(pro: Passage[], contra: Passage[] = []): string {
  * themselves rather than the ids — the ids are the model's language, and
  * everything downstream wants the span.
  */
-export type Verified = Omit<Clash, "pro" | "contra"> & { pro: Passage; contra: Passage };
+export type Verified = Omit<Clash, "pro" | "contra"> &
+  { pro: Passage; contra: Passage; claimProblem: string | null };
 
 /**
  * The checks both relations need, as one place rather than two.
@@ -179,11 +180,28 @@ function rejectionReason(
     return `cites unknown passage ${missing}`;
   }
   if (a.video === b.video) return `both passages come from one video, ${a.video}`;
+  return null;
+}
+
+/**
+ * What is wrong with how the claim is worded, or null.
+ *
+ * Kept apart from `rejectionReason` after a candidate was thrown away for it.
+ * A claim phrased badly is not a bad pair: the spans, the authors and the dates
+ * can all be right while the sentence is a description of the evidence rather
+ * than the disputed fact. One search returned exactly that — an author saying
+ * a large context window removes the need for compression, against the same
+ * author later saying it did not solve the problem — and the whole candidate
+ * disappeared over the sentence, which is the one part a person rewrites
+ * anyway before the question is written.
+ *
+ * So these are reported next to the candidate instead of deleting it.
+ */
+export function claimProblem(claim: string): string | null {
   if (/\?\s*$/.test(claim)) return "claim is phrased as a question";
-  // A claim that talks about the passages instead of stating the disputed fact.
-  // Two candidates came back as "The earlier passage asserts X, while the later
-  // passage..." — a description of the evidence, which cannot seed a question:
-  // there is nothing to ask, only a report that two people said things.
+  // "The earlier passage asserts X, while the later passage..." — a report
+  // about the evidence. There is nothing to ask from it, only a note that two
+  // people said things.
   if (/\b(?:the (?:earlier|later|first|second) passage|passage p?\d|the author (?:claims|asserts|states))\b/i.test(claim)) {
     return "claim describes the passages instead of stating the disputed fact";
   }
@@ -215,7 +233,7 @@ export function verify(
     const contra = find(c.contra);
     const reason = rejectionReason(c.claim, [c.pro, c.contra], [pro, contra]);
     if (reason) rejected.push({ clash: c, reason });
-    else kept.push({ ...c, pro: pro!, contra: contra! });
+    else kept.push({ ...c, pro: pro!, contra: contra!, claimProblem: claimProblem(c.claim) });
   }
   return { kept, rejected };
 }
@@ -272,7 +290,8 @@ Cite passages ONLY by the ids given. Never invent an id or a timestamp.
 Return an empty list if no pair genuinely needs both halves.
 `.trim();
 
-export type VerifiedComplement = Omit<Complement, "a" | "b"> & { a: Passage; b: Passage };
+export type VerifiedComplement = Omit<Complement, "a" | "b"> &
+  { a: Passage; b: Passage; claimProblem: string | null };
 
 /**
  * As `verify`, plus the check that separates a comparative pair from two
@@ -299,7 +318,7 @@ export function verifyComplements(
         ? "one side contributes nothing the other does not"
         : null);
     if (reason) rejected.push({ pair: p, reason });
-    else kept.push({ ...p, a: a!, b: b! });
+    else kept.push({ ...p, a: a!, b: b!, claimProblem: claimProblem(p.subject) });
   }
   return { kept, rejected };
 }
@@ -416,7 +435,7 @@ export function renderDated(passages: Passage[]): string {
 }
 
 export type VerifiedRevision = Omit<Revision, "earlier_id" | "later_id"> &
-  { earlier: Passage; later: Passage };
+  { earlier: Passage; later: Passage; claimProblem: string | null };
 
 /**
  * As the other two, plus the two checks this relation is made of: one author,
@@ -448,7 +467,7 @@ export function verifyRevisions(
       }
     }
     if (reason) rejected.push({ revision: r, reason });
-    else kept.push({ ...r, earlier: earlier!, later: later! });
+    else kept.push({ ...r, earlier: earlier!, later: later!, claimProblem: claimProblem(r.claim) });
   }
   return { kept, rejected };
 }
