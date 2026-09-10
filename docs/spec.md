@@ -441,6 +441,25 @@ The first three carry `recall@k`; 36 + 22 + 18 = 76 is the number the power
 calculation below is about. Negatives contribute nothing to it, so their count
 is set by what false-positive rate needs rather than by proportion.
 
+**The split between the first three is a budget, not a requirement.** Only the
+total of 76 governs what the set can detect, and 18 contradictions turned out
+to be the one line item the corpus may not be able to fill. Searching every
+tool over the whole corpus for passages that cannot both be true returns the
+same four disputes, each with several independent sources — see `pnpm clashes`.
+Four is a lower bound from one method with known blind spots: it only reads
+windows that name a tool, and it rejects two claims from one author separated
+in time, which `selection_rules` names as the second source of contradictions.
+But it is not close to eighteen.
+
+The shortfall belongs in comparative questions, and the arithmetic is in
+`pnpm power --contradictions 5`: at 36 + 22 + 5 the pool is 63 and the
+detectable difference widens from 10.5 to 12.5 pp, while 36 + 35 + 5 is 76
+again and detects the same 10.5 pp as the original design. Comparative
+questions need two videos on one subject, which this corpus has in quantity;
+a flat disagreement between two authors it evidently does not. Moving the
+budget costs nothing measurable. Lowering the total costs 2 pp of resolution
+in the range where chunking differences actually live.
+
 **Negatives carry two topics, not one.** `absent` says the answer is not in the
 corpus; the second says what the question is *about*. Of the 32 written, 19 have
 a real counterpart in the corpus — an MCP question about a tool that is absent,
@@ -477,6 +496,10 @@ configuration comparison is 36 + 22 + 18 = **76**.
 | 60 | 51 | 15.5 pp | 6 h |
 | **90** | **76** | **10.5 pp** | **9 h** |
 | 120 | 102 | 8.0 pp | 12 h |
+
+Recomputable with `pnpm power`, which is how the four figures above are now
+checked — a test asserts them, so a change to the set cannot quietly leave the
+table stale. They were written down once before anything could re-derive them.
 
 Paired design, power 0.8, α 0.05, deterministic retrieval. Differences between
 chunking strategies realistically live in the 5–15 pp range. At 40 questions the
@@ -588,6 +611,16 @@ detectable difference is far larger than any real effect. Contradiction coverage
 and false-positive rate stay the metrics that distinguish this project, but they
 are reported as a proportion with a Clopper-Pearson interval, not as a
 comparison between configurations.
+
+The numbers, since the claim is checkable (`pnpm power`): at 18 paired
+questions the detectable difference is 40.5 pp, and a 20 pp difference — far
+larger than anything chunking produces — is found 13% of the time. At the 5
+written so far, no difference in the whole range from 0 to 100 pp reaches 80%
+power, which is why `mdePaired` returns nothing rather than a large number.
+This is not a shortfall against the design; the design never claimed
+otherwise. It is worth stating in figures because a printed 2/5 against 0/5
+invites exactly the comparison this section forbids, and `pnpm ceiling` used
+to drop its warning about that at n=5.
 
 ### Rules
 
