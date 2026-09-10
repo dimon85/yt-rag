@@ -38,6 +38,9 @@ importers:
       '@yt-rag/ingest':
         specifier: workspace:*
         version: link:../ingest
+      gpt-tokenizer:
+        specifier: ^3.0.1
+        version: 3.4.0
       yaml:
         specifier: ^2.6.0
         version: 2.9.0

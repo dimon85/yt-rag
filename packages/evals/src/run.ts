@@ -61,6 +61,47 @@ export const Header = z.object({
   top_k: z.number().int().positive(),
   repeats: z.number().int().positive(),
   hit_coverage: z.number(),
+  /**
+   * What this configuration costs to run, in units, for one pass over the
+   * question set.
+   *
+   * Units and not dollars, for the reason packages/report exists: a price is a
+   * vendor's tariff on a date and it changes without the run changing, so
+   * pricing at write time would freeze a number that a corrected price should
+   * be able to move. prices.yaml supplies the rate and the report multiplies.
+   *
+   * Counted as what the configuration REQUIRES, not as what this invocation
+   * happened to pay. A cell whose vectors were all cached spent nothing, and
+   * recording that would make the cost column a description of cache warmth
+   * rather than of the configuration — the same cell would cost $0 on Tuesday
+   * and $4 on the machine that first ran it.
+   *
+   * Optional because a file written before cost was recorded carries none, and
+   * the report says "not recorded" rather than printing a zero that reads as
+   * free.
+   */
+  cost_units: z.object({
+    /** One-off, per chunking config: every chunk has to be embedded once. 0 for a lexical cell. */
+    index_embed_texts: z.number().int().nonnegative(),
+    index_embed_tokens: z.number().int().nonnegative(),
+    /** Over the whole question set, one pass: one query embedding each. 0 for a lexical cell. */
+    query_embed_texts: z.number().int().nonnegative(),
+    query_embed_tokens: z.number().int().nonnegative(),
+    /** Cohere bills one search per query against up to 100 documents; a wider pool is more. */
+    rerank_searches: z.number().int().nonnegative(),
+    rerank_documents: z.number().int().nonnegative(),
+  }).optional(),
+  /**
+   * Mean wall-clock of one query embedding, over the queries actually computed.
+   *
+   * null when every query vector came from the disk cache, which is the usual
+   * case and is why this cannot be derived from the latency column: retrieval
+   * is timed per question, but the query embedding happens once per run,
+   * before the loop. A dense cell in production pays it on every query, so the
+   * report adds it to the retrieval percentiles rather than leaving p95
+   * describing half the path.
+   */
+  query_embed_ms_mean: z.number().nullable().optional(),
   started_at: z.string(),
 });
 export type Header = z.infer<typeof Header>;
@@ -96,6 +137,20 @@ export const Result = z.object({
   contradiction: z.record(z.boolean().nullable()),
   /** Top-1 score, the only input false-positive rate needs. */
   top1: z.number().nullable(),
+  /**
+   * Wall-clock of the retrieval that produced these spans, this repeat.
+   *
+   * Per question and per repeat rather than a mean, because p95 is the figure
+   * the spec asks for and a mean cannot be recovered into one. It covers
+   * search, fusion and reranking — including a cross-encoder's round trip, for
+   * the cells that make one — and it does NOT cover embedding the query, which
+   * happens once per run before the loop. `query_embed_ms_mean` in the header
+   * carries that half.
+   *
+   * Optional for the same reason as `cost_units`: an older file has no timing
+   * and should say so rather than report zero.
+   */
+  latency_ms: z.number().nonnegative().optional(),
 });
 export type Result = z.infer<typeof Result>;
 
@@ -301,6 +356,80 @@ export const foundWithin = (r: Result, k: number): boolean | null => {
   const v = r.recall[String(k)];
   return v === null || v === undefined ? null : v > 0;
 };
+
+// ─── latency ─────────────────────────────────────────────────────────────────
+
+/**
+ * The p-th percentile, nearest-rank, on the sorted samples.
+ *
+ * Nearest-rank rather than interpolated: every value returned is a latency
+ * that was actually observed, which is the property that matters when the
+ * number is quoted as "p95 is 41 ms" and someone goes looking for the query
+ * that took it. With 104 questions × 3 repeats the two definitions differ by
+ * less than the timer's own resolution anyway.
+ *
+ * Null on no samples — a percentile of nothing is not zero, and a cell that
+ * recorded no timings has to be distinguishable from an instant one.
+ */
+export function percentile(samples: number[], p: number): number | null {
+  if (samples.length === 0) return null;
+  const sorted = [...samples].sort((a, b) => a - b);
+  const rank = Math.ceil((p / 100) * sorted.length) - 1;
+  return sorted[Math.min(sorted.length - 1, Math.max(0, rank))]!;
+}
+
+// ─── cost ────────────────────────────────────────────────────────────────────
+
+export type CostUnits = NonNullable<Header["cost_units"]>;
+
+/** A dollar figure, or the reasons it could not be produced. */
+export type Cost = { usd: number | null; unpriced: string[] };
+
+/**
+ * Dollars per 1000 queries: the query embedding and the rerank call.
+ *
+ * Indexing is deliberately not in here. It is paid once per chunking config
+ * and amortises over however many queries the system ever answers, so folding
+ * it into a per-query figure would require inventing that number —
+ * `indexingCost` reports it separately and undivided.
+ *
+ * An unpriced input makes the whole figure null rather than a partial sum. A
+ * cost of "$0.02, but the reranker is not counted" is worse than no figure:
+ * the first reads as complete and the second cannot.
+ */
+export function costPer1000Queries(
+  units: CostUnits,
+  questions: number,
+  embeddingUsdPerMillionTokens: number | null,
+  rerankUsdPer1000Searches: number | null,
+): Cost {
+  const unpriced: string[] = [];
+  if (embeddingUsdPerMillionTokens === null && units.query_embed_texts > 0) unpriced.push("embedding");
+  if (rerankUsdPer1000Searches === null && units.rerank_searches > 0) unpriced.push("rerank");
+  if (unpriced.length > 0) return { usd: null, unpriced };
+  if (questions === 0) return { usd: null, unpriced: ["no questions"] };
+
+  const perQuery =
+    (units.query_embed_tokens / 1e6) * (embeddingUsdPerMillionTokens ?? 0) / questions +
+    (units.rerank_searches / 1000) * (rerankUsdPer1000Searches ?? 0) / questions;
+  return { usd: perQuery * 1000, unpriced: [] };
+}
+
+/**
+ * What it costs to index one chunking configuration, once.
+ *
+ * Per configuration and not per cell: the three retrievers over one chunking
+ * share the embedding, so charging each of them would triple a cost that was
+ * paid once. The report groups by chunking id for the same reason.
+ */
+export function indexingCost(
+  units: CostUnits,
+  embeddingUsdPerMillionTokens: number | null,
+): Cost {
+  if (units.index_embed_texts === 0) return { usd: 0, unpriced: [] };
+  if (embeddingUsdPerMillionTokens === null) return { usd: null, unpriced: ["embedding"] };
+  return { usd: (units.index_embed_tokens / 1e6) * embeddingUsdPerMillionTokens, unpriced: [] };
+}
 
 // ─── identity ────────────────────────────────────────────────────────────────
 

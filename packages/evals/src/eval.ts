@@ -29,6 +29,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { encode } from "gpt-tokenizer";
 import { CachedLocalEmbedder } from "../../embed/src/local-cache.ts";
 import { geminiCacheCoverage, GEMINI_DIM, GeminiEmbedder } from "../../embed/src/gemini.ts";
 import { LOCAL_DIM } from "../../embed/src/local.ts";
@@ -218,6 +219,9 @@ function chunksFor(config: Chunking): IndexedChunk[] {
 const localEmbedder = new CachedLocalEmbedder(join(CACHE_DIR, "embeddings"));
 const reranker = new CohereReranker(join(CACHE_DIR, "rerank"));
 const questionTexts = golden.questions.map((q) => q.text);
+// Counted once, with the tokenizer the chunkers use — invariant 2 — so the
+// query and index token counts in cost_units are on one scale.
+const questionTokens = questionTexts.reduce((n, t) => n + encode(t).length, 0);
 
 /**
  * Billed rerank calls a cell would still make.
@@ -397,6 +401,8 @@ type Built = {
   queryVectors: Map<string, number[]> | null;
   /** Which questions plain BM25 answers at rank 1. Labels the report; filters nothing. */
   trivial: Map<string, boolean | null>;
+  /** Mean ms of one query embedding, over the ones actually computed. null when all cached. */
+  queryEmbedMs: number | null;
 };
 
 async function build(config: Chunking, wantDense: boolean): Promise<Built> {
@@ -414,7 +420,7 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
   }
 
   if (!wantDense) {
-    return { chunks, lexical, tokenSets, vectors: null, queryVectors: null, trivial };
+    return { chunks, lexical, tokenSets, vectors: null, queryVectors: null, trivial, queryEmbedMs: null };
   }
 
   const dim = embedderName === "local" ? LOCAL_DIM : GEMINI_DIM;
@@ -434,7 +440,18 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
 
   const vectors = (await embed(chunks.map((c) => c.text), `${config.id} chunks`))
     .map((v) => toStorage(v, dim));
+
+  // Timed, and divided by the queries that were actually computed rather than
+  // by all of them: a run that read 104 vectors from disk in 3 ms would
+  // otherwise report 0.03 ms per query embedding and put that in a latency
+  // column, which is a measurement of the cache and not of the model.
+  const cachedBefore = embedderName === "local"
+    ? localEmbedder.cachedCount(questionTexts)
+    : geminiCacheCoverage(join(CACHE_DIR, "embeddings"), questionTexts).cached;
+  const computed = new Set(questionTexts).size - cachedBefore;
+  const startedEmbedding = performance.now();
   const queries = (await embed(questionTexts, `${config.id} queries`)).map((v) => toStorage(v, dim));
+  const queryEmbedMs = computed > 0 ? (performance.now() - startedEmbedding) / computed : null;
   process.stdout.write("\r");
 
   return {
@@ -444,6 +461,7 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
     vectors,
     queryVectors: new Map(golden.questions.map((q, i) => [q.slug, queries[i]!])),
     trivial,
+    queryEmbedMs,
   };
 }
 
@@ -572,7 +590,41 @@ const write = (file: string, line: object) => appendFileSync(file, `${JSON.strin
 
 const matrixOrder = new Map(cells.map((c, i) => [cellId(c), i]));
 
-function header(cell: Cell, chunkCount: number): Header {
+/**
+ * What one pass over the question set costs this cell, in units.
+ *
+ * Derived from the configuration, not from the run's own spending: see the
+ * note on `cost_units` in run.ts. So a cell whose vectors were all cached
+ * reports the same units as the one that first embedded them, which is what
+ * makes the column a property of the configuration.
+ *
+ * Query tokens are counted with gpt-tokenizer — invariant 2, the same
+ * tokenizer as the chunkers — so the figure is on one scale with
+ * `index_embed_tokens`. It is not the tokenizer the embedding vendor bills by,
+ * and it cannot be: their count is not observable from here. Stated rather
+ * than smoothed over, because it puts a few percent of slack on the dollar
+ * figure and no amount of arithmetic here removes it.
+ */
+function costUnits(cell: Cell, built: Built): NonNullable<Header["cost_units"]> {
+  const dense = needsEmbeddings(cell.retrieval);
+  const api = cell.reranking.kind === "api";
+  const questions = golden.questions.length;
+  // Cohere bills one search per query against up to 100 documents; a wider
+  // pool is billed as more than one, so the pool size decides both columns.
+  const poolK = cell.reranking.kind === "none" ? topK : topK * RERANK_POOL;
+  const documents = Math.min(poolK, built.chunks.length);
+
+  return {
+    index_embed_texts: dense ? built.chunks.length : 0,
+    index_embed_tokens: dense ? built.chunks.reduce((n, c) => n + c.token_count, 0) : 0,
+    query_embed_texts: dense ? questions : 0,
+    query_embed_tokens: dense ? questionTokens : 0,
+    rerank_searches: api ? questions * Math.ceil(documents / 100) : 0,
+    rerank_documents: api ? questions * documents : 0,
+  };
+}
+
+function header(cell: Cell, chunkCount: number, built: Built | null): Header {
   return {
     type: "header",
     cell: cellId(cell),
@@ -588,6 +640,11 @@ function header(cell: Cell, chunkCount: number): Header {
     top_k: topK,
     repeats,
     hit_coverage: HIT_COVERAGE,
+    // A skipped cell was never built, so there is nothing measured to record.
+    // Absent rather than zeroed: the report prints "not recorded", and a zero
+    // would read as a configuration that costs nothing to run.
+    cost_units: built ? costUnits(cell, built) : undefined,
+    query_embed_ms_mean: built ? built.queryEmbedMs : undefined,
     started_at: new Date().toISOString(),
   };
 }
@@ -625,7 +682,7 @@ for (const [chunkingId, group] of byChunking) {
     if (v.run) continue;
     // A skipped cell still gets a file with a header, so the report can print
     // its reason in the row's place rather than leaving a blank.
-    startCell(cell, header(cell, chunksFor(cell.chunking).length));
+    startCell(cell, header(cell, chunksFor(cell.chunking).length, null));
     write(fileFor(cell), { type: "skipped", reason: v.reason });
     skipped.push({ cell: cellId(cell), reason: v.reason });
     console.log(`skip  ${pad(cellId(cell), 42)} ${v.reason}`);
@@ -643,13 +700,18 @@ for (const [chunkingId, group] of byChunking) {
 
   for (const cell of live) {
     const file = fileFor(cell);
-    startCell(cell, header(cell, built.chunks.length));
+    startCell(cell, header(cell, built.chunks.length, built));
 
     const results: Result[] = [];
     for (let repeat = 1; repeat <= repeats; repeat++) {
       for (const q of golden.questions) {
+        const started = performance.now();
         const ranked = await retrieve(cell, built, q, repeat);
-        const line = scoreQuestion(q, ranked, repeat, built.trivial.get(q.slug) ?? null);
+        const latencyMs = performance.now() - started;
+        const line = {
+          ...scoreQuestion(q, ranked, repeat, built.trivial.get(q.slug) ?? null),
+          latency_ms: latencyMs,
+        };
         // Appended as it arrives, not batched at the end of the cell.
         write(file, line);
         results.push(line);

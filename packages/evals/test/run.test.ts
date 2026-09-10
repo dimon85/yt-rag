@@ -2,8 +2,9 @@ import { describe, expect, test } from "vitest";
 import type { Question } from "../src/golden.ts";
 import type { Retrieved } from "../src/metrics.ts";
 import {
-  chunkSha, discordance, falsePositives, foundWithin, Header, Line, meanOf,
-  medianThreshold, repeatDisagreements, Result, scoreQuestion, tally,
+  chunkSha, costPer1000Queries, discordance, falsePositives, foundWithin, Header,
+  indexingCost, Line, meanOf, medianThreshold, percentile, repeatDisagreements,
+  Result, scoreQuestion, tally, type CostUnits,
 } from "../src/run.ts";
 
 const span = (start_s: number, end_s: number, score = 1, video = "aaaaaaaaaaa"): Retrieved =>
@@ -272,5 +273,100 @@ describe("Header", () => {
     // filename order, which puts fixed-1024 before fixed-128.
     const { order, ...without } = header;
     expect(() => Header.parse(without)).toThrow();
+  });
+});
+
+describe("percentile", () => {
+  test("nearest-rank, so every figure printed is one that happened", () => {
+    const samples = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    expect(percentile(samples, 50)).toBe(5);
+    expect(percentile(samples, 95)).toBe(10);
+  });
+
+  test("order of the input does not matter", () => {
+    expect(percentile([9, 1, 5, 3, 7], 50)).toBe(5);
+  });
+
+  test("one sample is its own median and its own p95", () => {
+    expect(percentile([42], 50)).toBe(42);
+    expect(percentile([42], 95)).toBe(42);
+  });
+
+  test("no samples is null, not zero — an untimed cell is not an instant one", () => {
+    expect(percentile([], 50)).toBeNull();
+    expect(percentile([], 95)).toBeNull();
+  });
+
+  test("p100 and p0 stay inside the array", () => {
+    expect(percentile([1, 2, 3], 100)).toBe(3);
+    expect(percentile([1, 2, 3], 0)).toBe(1);
+  });
+});
+
+describe("cost", () => {
+  const units = (over: Partial<CostUnits> = {}): CostUnits => ({
+    index_embed_texts: 1000,
+    index_embed_tokens: 500_000,
+    query_embed_texts: 100,
+    query_embed_tokens: 2_000,
+    rerank_searches: 0,
+    rerank_documents: 0,
+    ...over,
+  });
+
+  test("query embedding, priced per million tokens and scaled to 1000 queries", () => {
+    // 2,000 tokens over 100 questions is 20 per query; at $1/M that is
+    // $0.00002 a query and $0.02 per thousand.
+    const c = costPer1000Queries(units(), 100, 1, null);
+    expect(c.usd).toBeCloseTo(0.02, 10);
+    expect(c.unpriced).toEqual([]);
+  });
+
+  test("indexing is NOT in the per-query figure", () => {
+    // Same units, ten times the index: the per-query cost cannot move.
+    const small = costPer1000Queries(units(), 100, 1, null);
+    const large = costPer1000Queries(units({ index_embed_tokens: 5_000_000 }), 100, 1, null);
+    expect(large.usd).toBe(small.usd);
+  });
+
+  test("rerank searches are added, per query, at the searches rate", () => {
+    // 100 searches for 100 questions is one each; at $2/1000 that is $2 per
+    // thousand queries, on top of the embedding.
+    const c = costPer1000Queries(units({ rerank_searches: 100 }), 100, 1, 2);
+    expect(c.usd).toBeCloseTo(0.02 + 2, 10);
+  });
+
+  test("an unpriced input nulls the whole figure rather than half-summing it", () => {
+    const c = costPer1000Queries(units({ rerank_searches: 100 }), 100, 1, null);
+    expect(c.usd).toBeNull();
+    expect(c.unpriced).toEqual(["rerank"]);
+  });
+
+  test("both unpriced inputs are named, not just the first", () => {
+    const c = costPer1000Queries(units({ rerank_searches: 100 }), 100, null, null);
+    expect(c.unpriced).toEqual(["embedding", "rerank"]);
+  });
+
+  test("a lexical cell needs no price to cost nothing", () => {
+    // Nothing is embedded and nothing is reranked, so a null rate is not an
+    // unknown — there is no quantity for it to multiply.
+    const c = costPer1000Queries(
+      units({ query_embed_texts: 0, query_embed_tokens: 0 }), 100, null, null,
+    );
+    expect(c.usd).toBe(0);
+    expect(c.unpriced).toEqual([]);
+  });
+
+  test("indexing is reported whole, undivided by any query count", () => {
+    expect(indexingCost(units(), 2).usd).toBeCloseTo(1, 10);
+  });
+
+  test("an unpriced embedder nulls the index figure too", () => {
+    expect(indexingCost(units(), null).usd).toBeNull();
+    expect(indexingCost(units(), null).unpriced).toEqual(["embedding"]);
+  });
+
+  test("a lexical cell indexes nothing, and that is free rather than unknown", () => {
+    expect(indexingCost(units({ index_embed_texts: 0 }), null).usd).toBe(0);
   });
 });
