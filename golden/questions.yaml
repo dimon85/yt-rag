@@ -1,4 +1,4 @@
-# Version 12: 81 questions (5 contradictions, every one of them cross-author)
+# Version 15: 89 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 12
+version: 15
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1244,3 +1244,226 @@ questions:
           even close... it makes anthropic models almost feel like they're in
           the stone age", with OSWorld scores "better than anything, including
           the best from Anthropic".
+
+  # ── comparative, batch 2 ────────────────────────────────────────────────────
+  # Found with `pnpm pairs --relation complement`, which looks for two authors
+  # covering different parts of one subject rather than disagreeing about it.
+  # One mcp cell that yielded a single clash yielded three of these: a
+  # comparative question asks less of the corpus than a contradiction does, and
+  # the corpus answers accordingly.
+  #
+  # Every span below was read before it became gold, and the `a only` / `b only`
+  # split the tool reported was checked against what the passages actually say
+  # — that split is the whole claim, since a pair where one side adds nothing
+  # is a factual question wearing a second span.
+
+  - slug: agent-hook-points
+    text: At what points in an agent's run can you attach your own script, and what is
+      each point good for?
+    kind: comparative
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: msfMqW92Y8Q
+        start_s: 986.12
+        end_s: 1082.2
+        note: >
+          Cole Medin's mental model: "any kind of pre-hook is a gate... anything
+          post is more for logging". Covers blocking and observing during a
+          session, and says nothing about anything that runs before one starts.
+      - video: 3_mwKbYvbUg
+        start_s: 267.12
+        end_s: 362.32
+        note: >
+          IndyDevDan on the session-start setup hook — "operations you do not
+          want to run on every session like installing dependencies, running
+          migrations". The half the other span does not have.
+
+  - slug: agent-loop-stop-condition
+    text: How does a script that keeps restarting an agent decide it is finished?
+    kind: comparative
+    topics:
+      - autonomy
+    tools:
+      - codex
+      - claude-code
+    source: hand
+    gold:
+      - video: rIs802-bXDY
+        start_s: 87.84
+        end_s: 182.64
+        note: >
+          AI Jason contrasts a "dumb programmatic loop... with maximum
+          iterations" against a model call that judges whether the goal is
+          satisfied and re-triggers the agent if not.
+      - video: ulNsa0sD8N0
+        start_s: 898.0
+        end_s: 992.52
+        note: >
+          Cole Medin's Ralph loop exits on a file appearing: "the only way that
+          we can exit the main while loop here is if we have this done.text".
+          A different stop condition, not a restatement of the first.
+
+  - slug: parallel-agents-collision-setup
+    text: What has to be set up so two agents can work on the same project at once
+      without colliding?
+    kind: comparative
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: YJ3Z9XhlF5w
+        start_s: 627.2
+        end_s: 723.12
+        note: >
+          AI Jason on the file side: `git worktree add`, a folder per branch,
+          install per tree, then sub-agents each working in one.
+      - video: rFGlJ4oIlhw
+        start_s: 1165.64
+        end_s: 1262.48
+        note: >
+          Cole Medin on the runtime side, which worktrees alone do not solve —
+          a database branch per tree, and a port derived from the tree's name
+          so the running apps do not clash.
+
+  - slug: subscription-billing-check
+    text: Am I allowed to run an agent harness on my plan instead of buying credits,
+      and how do I check which one it is charging?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: HAkSUBdsd6M
+        start_s: 807.72
+        end_s: 903.56
+        note: >
+          The permission half. Overlaps the pro span of
+          cc-third-party-policy-reversal on purpose: one passage may serve two
+          questions, and only a pair whose BOTH spans are already annotated is
+          a duplicate.
+      - video: 8IDzBRRFnQU
+        start_s: 986.6
+        end_s: 1082.12
+        note: >
+          The verification half, which appears nowhere else in the set:
+          IndyDevDan reads the `API key source` field out of the run log —
+          "the field that lets you know for a fact you're running your API key"
+          — and contrasts it with OAuth usage, which carries rate limits.
+
+  - slug: antigravity-what-is-new
+    text: What is genuinely new in Google's editor, and what is it built on top of?
+    kind: comparative
+    topics:
+      - migration
+    tools:
+      - cursor
+    source: hand
+    gold:
+      - video: mAwJYUJib1I
+        start_s: 176.4
+        end_s: 273.36
+        note: >
+          David Ondrej on the part that is new: a separate agent manager window
+          for orchestrating several agents on one project, "the biggest
+          difference compared to Cursor".
+      - video: V5IhsHEHXOg
+        start_s: 0.16
+        end_s: 93.52
+        note: >
+          IndyDevDan on what it is made of: "a VS Code fork that acts more like
+          a cursor ripoff that is actually cascade". Evaluative in tone, but the
+          factual half — the lineage — appears nowhere else in the corpus.
+
+  - slug: rule-file-contents
+    text: What kinds of instruction do people put in the file an agent reads before it
+      starts work?
+    kind: comparative
+    topics:
+      - context-window
+    tools:
+      - claude-code
+      - cursor
+    source: hand
+    gold:
+      - video: YJ3Z9XhlF5w
+        start_s: 246.0
+        end_s: 330.0
+        note: >
+          AI Jason on project-specific design rules in claude.md — colour, font,
+          layout, and a rule that UI iterations go into one HTML file. The span
+          starts at 246 rather than where the tool proposed it: the first half
+          of that window is an advertisement, which is what prompted extending
+          AD_PATTERN and actually applying it.
+      - video: MtwWHXYFqbQ
+        start_s: 88.4
+        end_s: 182.64
+        note: >
+          Greg Kamradt names three kinds and the other span has only one:
+          directional (narrowing the file search), operational (runbooks,
+          conventions) and behavioural (user rules, "only speak to me in
+          Spanish").
+
+  - slug: agent-self-learning-downside
+    text: What goes wrong when an agent is allowed to remember things and improve
+      itself between sessions?
+    kind: comparative
+    topics:
+      - reliability
+      - autonomy
+    tools:
+      - cursor
+      - codex
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 1435.6
+        end_s: 1533.12
+        note: >
+          David Ondrej on when not to use one: self-improving harnesses create
+          skills as they go, so for well-defined work "you don't want random
+          skills created" and he recommends a plain harness instead.
+      - video: MtwWHXYFqbQ
+        start_s: 176.72
+        end_s: 272.2
+        note: >
+          Greg Kamradt on the other failure, which the first span does not
+          mention: a wrong memory makes the model "double down... because it's
+          like oh no I have a memory, this has got to be correct".
+
+  - slug: newer-harness-tradeoff
+    text: What do you gain and what do you give up by moving to a newer agent harness?
+    kind: comparative
+    topics:
+      - migration
+      - reliability
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: TML-0HmxWCE
+        start_s: 87.48
+        end_s: 184.36
+        note: >
+          Matthew Berman on the gain: it "comes pre-configured with a lot of
+          things out of the box, especially skills", with a tab full of them
+          enabled on install.
+      - video: EHlqRx0r4BI
+        start_s: 1167.56
+        end_s: 1262.04
+        note: >
+          David Ondrej on the cost: "Hermes is the newest project... going to
+          have the most bugs, going to have the most unpolished things", the
+          terminal interface still rough. Also names the migration command.

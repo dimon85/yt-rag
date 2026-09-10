@@ -16,7 +16,7 @@ import {
   type Annotated, ClashSchema, COMPLEMENT_PROMPT, ComplementSchema, duplicateOf,
   type Passage, POOLED_PROMPT, PROMPT, renderPassages, verify, verifyComplements,
 } from "./clash.ts";
-import { hasPhrase, score, tile } from "./candidates.ts";
+import { AD_PATTERN, hasPhrase, score, tile } from "./candidates.ts";
 import { CACHE_DIR, loadCorpus, ROOT, type Stance } from "./corpus.ts";
 import { normalizeTranscript, type Segment } from "./text.ts";
 
@@ -299,7 +299,10 @@ const annotated: Annotated[] = (
 const dupe = (a: Passage, b: Passage) => duplicateOf(a, b, annotated);
 const where = (p: Passage) =>
   `${p.channel} — youtu.be/${p.video}?t=${Math.floor(p.start_s)}` +
-  `  (${p.start_s.toFixed(2)}–${p.end_s.toFixed(2)})`;
+  `  (${p.start_s.toFixed(2)}–${p.end_s.toFixed(2)})` +
+  // Marked, not dropped: a 90-second window can hold an ad read and a real
+  // claim, and narrowing the span is a judgement only a reader can make.
+  (AD_PATTERN.test(p.text) ? "  [contains an ad read — check the span]" : "");
 
 let proposed: number;
 let verified: number;

@@ -232,8 +232,19 @@ export function stratify<T extends { score: Score }>(rows: T[], n: number, bands
  * The word "sponsor" alone does not catch them. That one said "clicking the
  * link in the description" and "scan the QR code".
  */
+/**
+ * Read-outs that are advertising rather than a claim about a tool.
+ *
+ * Extended after one slipped into a candidate pair: "I highly recommend you go
+ * and check out firecro" matched none of the original forms, and the passage
+ * became half a gold span before it was read. The blunter cause was that this
+ * pattern was exported, tested, and applied nowhere — an ad filter that
+ * filtered nothing. `pnpm pairs` now marks passages it matches instead of
+ * dropping them, because a 90-second window can hold an ad read and a real
+ * claim, and the person reading the candidate is the one who can tell.
+ */
 export const AD_PATTERN =
-  /sponsor|word from|link in the description|link below|scan the qr|use my code|discount code|free credits|sign up (?:for|using)/i;
+  /sponsor|word from|link in the description|link below|scan the qr|use my code|discount code|free credits|sign up (?:for|using)|recommend you go|go and check out|\d+% off/i;
 
 /**
  * Whether a window overlaps anything already chosen.
