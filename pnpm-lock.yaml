@@ -63,6 +63,15 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
 
+  packages/report:
+    dependencies:
+      '@yt-rag/evals':
+        specifier: workspace:*
+        version: link:../evals
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+
   packages/retrieve: {}
 
 packages:

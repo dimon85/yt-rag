@@ -1,0 +1,9 @@
+{
+  "name": "@yt-rag/report",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@yt-rag/evals": "workspace:*",
+    "zod": "^3.24.0"
+  }
+}
