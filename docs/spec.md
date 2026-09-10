@@ -459,6 +459,35 @@ rate, which is what they are for.
 - one-off indexing cost per configuration (stored in `chunk_sets`)
 - p50 / p95 latency
 
+All three are in `pnpm report`, and three decisions about them are worth
+stating because each one is a place the obvious version misleads.
+
+**Units are recorded; dollars are computed at read time.** A run writes what
+the configuration consumes — chunk texts and tokens, query texts and tokens,
+rerank searches and documents — and `prices.yaml` supplies the tariff. A price
+is a claim about a vendor on a date, so freezing one into the JSONL would make
+a corrected price a reason to re-run the matrix. This way it is a re-read.
+
+**The units are what the configuration REQUIRES, not what the run paid.**
+Every embedding here is cached, so a second run of a cell spends nothing;
+recording that would make the cost column a measurement of cache warmth, and
+the same cell would cost $0 today and $4 on the machine that first ran it.
+
+**An unpriced input makes the figure null, not a partial sum.** This project
+never paid for an embedding — the Gemini work was free-tier allowance counted
+in texts against a daily cap — and never paid for a rerank, since no key was
+ever set. So `prices.yaml` carries nulls with reasons rather than list prices
+for tiers the project did not use, and the report prints the reasons in place
+of the dollars. "$0.02, reranker not counted" reads as complete and is not.
+
+Latency is timed per question and per repeat, so p95 is a query that actually
+took that long. It covers search, fusion and reranking — a cross-encoder's
+round trip included — and NOT embedding the query, which happens once per run
+before the loop. That half is measured separately and reported as its own
+column, because a dense retriever in production pays it on every query and a
+p95 describing only the second half of the path would be the flattering
+number rather than the true one.
+
 ---
 
 ## Golden set: 106 questions

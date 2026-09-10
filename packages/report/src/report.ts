@@ -20,6 +20,7 @@ import { parseArgs } from "node:util";
 import { ROOT } from "../../ingest/src/corpus.ts";
 import { binomTest, clopperPearson, mdePaired } from "../../evals/src/power.ts";
 import { RECALL_POOL_TARGET } from "../../evals/src/golden.ts";
+import { loadPrices, unpricedReason } from "../../evals/src/prices.ts";
 import {
   byKind, comparable, pairings, readDir, rowLabel, summarise, type CellRun, type Row,
 } from "./aggregate.ts";
@@ -116,7 +117,10 @@ if (reference.git_sha.endsWith("-dirty")) {
   );
 }
 
-const rows = cells.map(summarise);
+// Prices come from a file, not from the code: a corrected tariff has to be a
+// re-read of what the runs recorded rather than a re-run of the matrix.
+const prices = loadPrices(join(ROOT, "prices.yaml"));
+const rows = cells.map((c) => summarise(c, prices));
 const live = rows.filter((r) => r.notRun === null);
 const liveCells = cells.filter((c) => !c.skipped && c.results.length > 0);
 
@@ -200,6 +204,91 @@ console.log(
   `\nThe chunking axis is never collapsed. Chunk size moves the retrievers in\n` +
   `opposite directions, so "which chunking is best" has no answer without naming\n` +
   `the retriever, and a mean over retrievers would answer a question nobody asked.`,
+);
+
+// ─── 2b. cost and speed ──────────────────────────────────────────────────────
+
+/** Greedy wrap. Long words are left long rather than broken mid-token. */
+const wrap = (text: string, width: number): string[] =>
+  text.split(/\s+/).filter(Boolean).reduce<string[]>((lines, word) => {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && `${last} ${word}`.length <= width) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+    return lines;
+  }, []);
+
+const ms = (v: number | null) => (v === null ? "   —  " : `${v.toFixed(1)}`.padStart(6));
+const usd = (c: { usd: number | null } | undefined) =>
+  c === undefined || c.usd === null ? "     —  " : `$${c.usd.toFixed(4)}`.padStart(8);
+
+console.log(`\n${"─".repeat(78)}`);
+console.log("cost and speed");
+console.log(
+  `Retrieval latency is timed per question and per repeat, so p95 is a query that\n` +
+  `actually took that long rather than a mean nobody experienced. It covers search,\n` +
+  `fusion and reranking — a cross-encoder's round trip included — and NOT embedding\n` +
+  `the query, which happens once per run before the loop. The +embed column carries\n` +
+  `that half where it was measured; where every query vector came from the disk\n` +
+  `cache there was nothing to time and it reads "—".`,
+);
+
+console.log(
+  `\n${head("configuration", WIDTH)}   p50    p95   +embed   $/1000q   index $`,
+);
+console.log("─".repeat(WIDTH + 42));
+for (const r of rows) {
+  if (r.notRun) {
+    // The reason is in the main table; repeating it for every skipped cell
+    // would bury the rows that have figures.
+    console.log(`${head(r.label, WIDTH)}   not run`);
+    continue;
+  }
+  if (r.latency.samples === 0 && r.cost === null) {
+    console.log(`${head(r.label, WIDTH)}   not recorded — this file predates these columns`);
+    continue;
+  }
+  console.log(
+    `${head(r.label, WIDTH)} ${ms(r.latency.p50)} ${ms(r.latency.p95)} ${ms(r.queryEmbedMs)} ` +
+    `${usd(r.cost?.perThousandQueries)}  ${usd(r.cost?.indexing)}`,
+  );
+}
+
+// Which figures could not be produced, and in prices.yaml's own words. Printed
+// once rather than per row: 42 rows repeating one sentence about a free tier is
+// noise, and the reason is a property of the price file, not of the cell.
+const unpriced = new Map<string, string>();
+for (const r of rows) {
+  for (const key of [...(r.cost?.perThousandQueries.unpriced ?? []), ...(r.cost?.indexing.unpriced ?? [])]) {
+    // The reranking id, from the cell name the run recorded — not a literal, so
+    // a second hosted reranker reports its own reason rather than cohere's.
+    const vendor = key === "embedding" ? (r.embedder ?? "") : (r.cell.split("__")[2] ?? "");
+    const reason = unpricedReason(prices, vendor);
+    if (reason) unpriced.set(vendor, reason);
+  }
+}
+if (unpriced.size > 0) {
+  console.log(
+    `\nSome dollar figures are "—" on purpose. An unpriced input makes the whole\n` +
+    `figure null rather than a partial sum: "$0.02, reranker not counted" reads as\n` +
+    `complete and is not. prices.yaml says why, and those reasons are:`,
+  );
+  for (const [vendor, reason] of unpriced) {
+    console.log(`\n  ${vendor}:`);
+    // Wrapped here, not in the file: YAML block scalars fold their newlines
+    // away, so a reason written as a tidy paragraph arrives as one long line
+    // and would print past the width of everything around it.
+    for (const line of wrap(reason, 74)) console.log(`    ${line}`);
+  }
+}
+
+const indexed = new Map<string, Row>();
+for (const r of rows) if (!indexed.has(r.cell.split("__")[0]!)) indexed.set(r.cell.split("__")[0]!, r);
+console.log(
+  `\nThe index column is a one-off per chunking configuration, not per row: the\n` +
+  `${indexed.size} chunking config${indexed.size === 1 ? " is" : "s are each"} embedded once and shared by every retrieval ×\n` +
+  `reranking cell over it, so charging each cell would multiply a cost that was\n` +
+  `paid once. It is also deliberately not folded into $/1000q — amortising it\n` +
+  `would require inventing how many queries the system ever answers.`,
 );
 
 // ─── 3. the term-matchable split ─────────────────────────────────────────────
