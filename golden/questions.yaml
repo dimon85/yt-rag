@@ -1,4 +1,4 @@
-# Version 4: 48 questions (32 negatives, all four absent tools); golden_sha: d816fefcbd98d906
+# Version 10: 80 questions (4 contradictions, two of them cross-author by construction)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -18,10 +18,13 @@
 #
 #   factual        exactly one gold span — the answer sits in one place
 #   comparative    spans from 2+ different videos
-#   contradiction  both a pro and a contra span; same-video pairs are allowed
+#   contradiction  both a pro and a contra span. Same-video pairs pass the
+#                  validator, but measure much less than they appear to: any
+#                  retriever returning two nearby chunks scores full coverage.
+#                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 9
+version: 10
 
 questions:
   - slug: cc-session-cap-tiers
@@ -226,6 +229,19 @@ questions:
     tools:
       - claude-code
     gold:
+      # Added after `pnpm clashes` made the defect visible: every gold span here
+      # came from one video, so any retriever returning two nearby chunks scored
+      # full contradiction coverage. The dispute is between authors, and until
+      # this span was added the question could not measure that.
+      - video: HAkSUBdsd6M
+        start_s: 807.72
+        end_s: 859.12
+        side: pro
+        note: >
+          Cole Medin, asserting it in his own voice rather than reporting it:
+          "you are allowed to use your Anthropic or Codex subscription with the
+          harness... so you don't have to pay for API credits", attributed to an
+          Anthropic team member's clarification.
       - video: 8IDzBRRFnQU
         start_s: 547.24
         end_s: 563.04
@@ -1098,3 +1114,72 @@ questions:
           commands and a new SDK, the speaker turned Claude Code into a 'cloud
           designer' that spins up multiple sub-agents to generate several UI
           variations at once."
+
+  # ── contradictions, batch 2 ─────────────────────────────────────────────────
+  # Found with `pnpm clashes --sides any` after matching by vocabulary produced
+  # 0 disagreements from 32 pairs. Both of these are between authors on the same
+  # side of the corpus's stance axis, which is why splitting passages by channel
+  # stance could not have found either: hype channels mention MCP twice across
+  # 26 videos while practical channels mention it 64 times across 34.
+
+  - slug: mcp-tool-context-always-loaded
+    text: If I connect a server full of tools, does the model have to carry every
+      one of their descriptions whether it uses them or not?
+    kind: contradiction
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: hand
+    gold:
+      - video: -iTNOaCmLcw
+        start_s: 41.6
+        end_s: 93.12
+        side: pro
+        note: >
+          Cole Medin, arguing for skills over MCP: an MCP server is "where you're
+          just dumping a bunch of context into the LLM right away and completely
+          overwhelming it".
+      - video: 3wglqgskzjQ
+        start_s: 670.12
+        end_s: 722.64
+        side: contra
+        note: >
+          AI Jason: "For the MCP server, it's actually very flexible... if you
+          set deferred loading to be true, that means all the tools from this
+          MCP server default won't be visible", with per-tool overrides.
+      # The two sides share almost no vocabulary — one talks about skills and
+      # progressive disclosure, the other about tool search and deferred
+      # loading — which is exactly the case a similarity-matched pairing cannot
+      # produce and the reason this question is worth having.
+
+  - slug: cursor-third-party-model-access
+    text: Am I stuck with whatever models Cursor ships, or can I point it at another
+      provider I already pay for?
+    kind: contradiction
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 0.08
+        end_s: 47.28
+        side: pro
+        note: >
+          David Ondrej, on why he uses a separate interface: "The problem with
+          apps like codex or cursor is that they only allow their own models,
+          their own subscription."
+      - video: jKCjLzjmiaA
+        start_s: 1346.0
+        end_s: 1397.6
+        side: contra
+        note: >
+          Theo, describing frontier models reached through Cursor and the
+          subsidy ending: "while cursor has been able to float this for a
+          while... now they're being forced to stop". Read as a partial
+          conflict, not a flat one — both can hold at different dates, and the
+          question is answerable well only by returning both.
