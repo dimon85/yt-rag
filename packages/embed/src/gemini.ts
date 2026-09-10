@@ -169,6 +169,31 @@ export class GeminiEmbedder {
   }
 }
 
+/**
+ * How many of these texts already have a cached vector, without constructing
+ * an embedder.
+ *
+ * Separate from the class on purpose: the constructor demands GEMINI_API_KEY,
+ * and the question "would this run cost anything" has to be answerable when
+ * there is no key and no budget left. Reads the cache file and nothing else —
+ * no client, no network.
+ */
+export function geminiCacheCoverage(
+  cacheDir: string,
+  texts: string[],
+): { cached: number; missing: number; total: number } {
+  const path = join(cacheDir, `${GEMINI_MODEL}-${GEMINI_DIM}.json`);
+  const cache: Record<string, unknown> = existsSync(path)
+    ? JSON.parse(readFileSync(path, "utf8"))
+    : {};
+  const unique = new Set(texts);
+  let cached = 0;
+  for (const t of unique) {
+    if (cache[createHash("sha256").update(t).digest("hex").slice(0, 24)]) cached++;
+  }
+  return { cached, missing: unique.size - cached, total: unique.size };
+}
+
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Unit length. A zero vector stays zero rather than becoming NaN. */

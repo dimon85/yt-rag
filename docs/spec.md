@@ -322,17 +322,50 @@ cannot reach ingest.
 
 ## Ablation configurations
 
-| # | Strategy | Parameters | What it tests |
-|---|---|---|---|
-| 1 | fixed | 512 tokens, overlap 0 | Baseline |
-| 2 | fixed | 512, overlap 25% | Whether overlap helps on conversational text |
-| 3 | fixed | 1024, overlap 25% | Longer context vs. precision |
-| 4 | time_window | 60 s windows | Natural transcript boundaries |
-| 5 | time_window | 90 s, overlap 30 s | Same, with overlap |
-| 6 | sentence | sentence boundaries, up to 512 | See below — needs punctuation |
+**`configs.yaml` is the source of truth, not this table.** It is loaded and
+validated by `packages/evals/src/configs.ts`, and the table below is a
+description of it that has already drifted once — the sizes here were the ones
+the project started with, and the pilot moved them. Where the two disagree, the
+file is right.
 
-Then: **the best 2 configurations × 2 embedding models**, and on the winner,
-reranker on/off. Roughly 12 runs in total, each repeated 3 times.
+What the file declares now, and why it differs:
+
+| id | Strategy | Parameters | What it tests |
+|---|---|---|---|
+| `fixed-128` | fixed | 128 tokens, overlap 0 | The short end, where embeddings recover their signal |
+| `fixed-256` | fixed | 256, overlap 0 | Midpoint of the range where the two retrievers cross over |
+| `fixed-512` | fixed | 512, overlap 0 | The original baseline, best for BM25 in the pilot |
+| `fixed-512-ov128` | fixed | 512, overlap 25% | Whether overlap rescues answers split across a boundary |
+| `fixed-1024-ov256` | fixed | 1024, overlap 25% | Longer context vs. precision; control for the size trend |
+| `window-60` | time_window | 60 s windows | Natural transcript boundaries instead of token counts |
+| `window-90-ov30` | time_window | 90 s, overlap 30 s | Same, with overlap |
+| — | sentence | sentence boundaries, up to 512 | **Not implemented.** See "Configuration #6 without Python" |
+
+Seven rows, not six. 128 and 256 were added and `sentence` was dropped, both
+for reasons recorded in the comment at the top of `configs.yaml`: a pilot on 18
+questions showed chunk size acting on the two retrievers in **opposite
+directions**, with the interesting range below 512 rather than above it —
+
+| retriever | 128 tokens | 512 tokens | |
+|---|---|---|---|
+| bm25 | 43.8% | 50.0% | longer documents hold more query terms |
+| local | 37.5% | 18.8% | mean pooling washes the answer out |
+
+— so "which chunking strategy is best" has no answer without naming the
+retriever, and 1024 is unlikely to be where anything happens. It is kept as the
+control that shows the trend continuing.
+
+`window-90-ov30` and `window-60` produce the **same number of chunks**, 1,756
+each: a 90-second window with 30 seconds of overlap advances 60 seconds a
+window, which is exactly what a 60-second window with no overlap does. The pair
+differs only in chunk length, 227 against 336 mean tokens. They are not
+replicates of each other.
+
+The full matrix is chunking × retrieval × reranking — 7 × 3 × 3 = **63 cells**,
+each repeated 3 times. Not the "roughly 12 runs" this document originally
+planned: that number assumed a hand-picked best-2 rather than the whole grid,
+and the grid turned out cheap enough to run whole once chunking and embedding
+were cached per configuration rather than per cell.
 
 **Three times is not a formality.** Vector search ought to be deterministic,
 but HNSW is approximate, and with concurrent inserts the ordering can differ.
@@ -646,6 +679,134 @@ to drop its warning about that at n=5.
 
 ---
 
+## The runner
+
+Two commands, and the split between them is load-bearing.
+
+```
+pnpm eval --run-all                 # every cell of configs.yaml → runs/<stamp>/*.jsonl
+pnpm eval --chunking fixed-128 --retrieval bm25,vector --reranking none
+pnpm eval --dry-run --run-all       # print the matrix and the cost, run nothing
+pnpm report                         # aggregate the newest run directory
+```
+
+`pnpm eval` retrieves and writes; `packages/report` reads and computes. The
+report package imports no retriever, no embedder and no chunker, and a test
+walks its import graph to keep it that way. That is not tidiness: it is what
+makes every number in the table traceable to a line in a file whose header
+records the question set and the code that produced it.
+
+**No database.** Invariants 1 and 9 describe a `chunks` table with a mandatory
+`chunk_set_id`, and there isn't one — everything is derived from
+`cache/transcripts/*.json` on each invocation. A JSONL file is one cell of the
+matrix by construction, and its `cell` field is the chunk-set identity for
+these runs. If a table ever lands, the mapping is
+`chunk_set_id ↔ (chunking id, embedder)`.
+
+**One file per cell, appended as results arrive**, so a run that dies keeps
+what it did. The cost of appending is that a second run writing the same
+filename extends the file rather than replacing it, giving it two headers and a
+doubled question set. `pnpm eval` refuses an `--out` directory that already
+holds the cells it is about to write (`--force` replaces them), and
+`readCell` refuses a two-header file outright. The default timestamped
+directory never collides, which is exactly why the check has to exist: the
+failure is invisible with the default and reachable with `--out`.
+
+**A skipped cell gets a file too**, with its header and a `skipped` line
+carrying the reason. Never a zero and never a blank — a missing cell that looks
+like a bad result is worse than an empty one.
+
+### What actually ran, and what did not
+
+Of 63 cells, **42 ran** and 21 did not:
+
+| blocked | cells | reason |
+|---|---|---|
+| `cohere-rerank` | 21 | `COHERE_API_KEY` is not set. The client exists (`packages/retrieve/src/cohere.ts`); with a key each cell needs up to 312 billed calls and `--spend-rerank` |
+| Gemini embeddings | 28 under `--embedder gemini` | The spend cap is exhausted |
+
+So the "on the winner, reranker on/off" step of the plan is **not closed**: the
+code is there and tested, the calls are not paid for. And the embedding-model
+axis is not a comparison either — the whole matrix ran on the local model.
+
+The Gemini gap is worth stating precisely, because the obvious version of it is
+wrong. The disk cache covers `fixed-128` and `fixed-512` completely, 3,238 and
+825 chunks. It covers **45 of the 104 question texts**. A query needs a vector
+too, so a `vector` cell on `fixed-128` needs 59 new calls despite every chunk
+being on disk — the pre-flight checks queries and chunks separately for that
+reason. Quota is spent per text, so 59 units would unblock 8 cells; the other
+20 still need their chunks embedded.
+
+### Reranking is the one axis where the repeats really cost
+
+Chunking, embedding and rerank calls are all cached on disk by a hash of their
+input, which is what makes three repeats of 63 cells affordable — the second
+full run computed 0 embeddings and read 11,505 from cache. Reranking is the
+exception, and deliberately so: for a hosted model the repeats check whether
+the **vendor** drifts between calls, and a cached repeat would answer that with
+the first repeat's answer. So `rerank` reads the cache and `rerankFresh` does
+not, and repeats past the first always spend.
+
+### Determinism
+
+All three repeats of all 42 cells returned identical rankings. That is the
+result the repeats exist to produce, and it is what licenses `noise = 0` in
+`mdePaired` — measured rather than assumed. Every ranking sorts by score and
+then by index; without the tiebreak, equal BM25 scores would make two repeats
+differ and it would be indistinguishable from a real effect.
+
+### Results
+
+Recall pool 72 of 104 questions, so the detectable difference is **11.0 pp**,
+not the 10.5 pp the table in "Why 90 and not 40" gives for 76. `pnpm report`
+prints the live figure and the spec's side by side rather than reprinting a
+stale number.
+
+Best cell per retriever, at recall@5 (`/local` embeddings throughout):
+
+| configuration | r@1 | r@5 | r@10 | MRR | FP@median |
+|---|---|---|---|---|---|
+| `fixed-1024-ov256__bm25__none` | 27.8% | 50.6% | 57.1% | 0.447 | 34.4% |
+| `fixed-512-ov128__vector__none` | 15.3% | 45.9% | 55.2% | 0.350 | 3.1% |
+| `fixed-512-ov128__hybrid__none` | 28.1% | 58.4% | 63.5% | 0.527 | 9.4% |
+
+Four things the run established:
+
+1. **The ceiling gate holds.** The best configuration reaches 58.4% on
+   recall@5, well below 85%, so differences are measurable in principle.
+2. **Chunk size still moves the retrievers in opposite directions**, which is
+   why the table never collapses that axis. BM25 climbs monotonically with
+   chunk size, 37.1% → 50.6%; the local model peaks in the middle.
+3. **MMR remains a measured negative result.** At λ 0.7 it lost recall@5 in 18
+   of 21 configurations and improved contradiction coverage in 2. It is in the
+   matrix as a row worth having, not as a fix.
+4. **The recall/abstention trade-off is real and large.**
+   `fixed-512-ov128__hybrid__none` leads recall at 58.4% and answers 9.4% of
+   the unanswerable questions; `window-60__vector__none` answers **0%** of them
+   at 35.4% recall. Chosen on recall alone, the system would confidently answer
+   questions that have no answer.
+
+Contradiction coverage is 0–2 of **11** measurable questions throughout. The
+design calls for 18; at 11 a difference is one or two questions, so the column
+is descriptive only (invariant 14).
+
+### One caveat on the term-matchable split
+
+`pnpm report` prints recall@5 split by whether BM25 alone answers a question at
+rank 1. The denominators differ by chunking row — 21, 23, 18, 27 — because the
+label is computed from a BM25 pass over *that configuration's own chunks*, and
+a question BM25 answers over 512-token chunks is not always one it answers over
+128-token chunks.
+
+So the column reads **down**, comparing retrievers within one chunking row, and
+not **across** chunking rows: 79.5% (n=21) against 83.3% (n=24) compares two
+different subsets of the same 72 questions. The alternative — one partition
+from a single reference chunking — would make the rows comparable and would be
+wrong in a worse way, labelling a question by how a configuration nobody is
+measuring behaves. The report says this above the table.
+
+---
+
 ## Three-week roadmap
 
 **Week 1 — ingest and baseline**
@@ -655,10 +816,14 @@ to drop its warning about that at n=5.
 - Manual check on 5 questions
 
 **Week 2 — metrics and ablation**
-- Golden set of 106 questions, 76 of them carrying recall (see above)
-- Wire up the existing JSONL runner and `report.mjs`
+- Golden set of 106 questions, 76 of them carrying recall (see above).
+  **Delivered as 104, with a recall pool of 72** — see "The runner" for what
+  that does to the detectable difference
+- `pnpm eval` and `packages/report` — written here rather than reused. The
+  "existing harness" this document counted on was a JSONL runner and a
+  `report.mjs` from a previous project; only `power.ts` was actually portable
 - Metric code + **tests for the metric code**
-- 12 configurations × 3 runs
+- 63 configurations × 3 repeats
 - Report
 
 **Week 3 — presentation**
