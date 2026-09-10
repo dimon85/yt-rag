@@ -4,7 +4,7 @@ import {
 } from "../src/clash.ts";
 
 const passage = (id: string, video: string, text = "some words"): Passage => ({
-  id, video, channel: "Someone", start_s: 10, end_s: 40, text,
+  id, video, channel: "Someone", published_at: "2026-01-01", start_s: 10, end_s: 40, text,
 });
 
 const clash = (over: Partial<Clash> = {}): Clash => ({
@@ -28,6 +28,21 @@ describe("guarding against invented citations", () => {
     expect(kept).toHaveLength(1);
     expect(kept[0]!.pro.video).toBe("vidA");
     expect(kept[0]!.contra.video).toBe("vidB");
+  });
+
+  test("ids the model wrapped in brackets still resolve", () => {
+    // Passages are rendered as `[p1] (channel) text`, and a model asked to
+    // cite p1 sometimes cites `[p1]`. One search returned its only candidate
+    // that way and lost it as an invented id.
+    const { kept } = verify([clash({ pro: "[p1]", contra: " [c1] " })], offered);
+    expect(kept).toHaveLength(1);
+  });
+
+  test("stripping brackets does not let an unoffered id through", () => {
+    const { kept, rejected } = verify([clash({ contra: "[c9]" })], offered);
+    expect(kept).toEqual([]);
+    // The rejection prints what the model actually wrote, not the cleaned form.
+    expect(rejected[0]!.reason).toMatch(/\[c9\]/);
   });
 
   test("an unknown id is rejected and named", () => {
@@ -68,6 +83,24 @@ describe("the claim is a proposition, not a question", () => {
   test("a trailing question mark is caught through surrounding space", () => {
     const offered = [passage("p1", "vidA"), passage("c1", "vidB")];
     expect(verify([clash({ claim: "Is it five hours?  " })], offered).kept).toEqual([]);
+  });
+
+  const offered = [passage("p1", "vidA"), passage("c1", "vidB")];
+
+  test("a claim describing the passages is rejected", () => {
+    // Seen twice in one run: "The earlier passage asserts X, while the later
+    // passage considers Y." That is a report about the evidence, not a
+    // proposition, and there is no question to write from it.
+    const described = "The earlier passage asserts the limit is five hours, while the later passage disagrees.";
+    const { kept, rejected } = verify([clash({ claim: described })], offered);
+    expect(kept).toEqual([]);
+    expect(rejected[0]!.reason).toMatch(/describes the passages/);
+  });
+
+  test("an ordinary proposition mentioning an author is not rejected", () => {
+    // The guard must not fire on a claim that happens to name a person.
+    const fine = "Anthropic allows subscription use of the SDK for local work.";
+    expect(verify([clash({ claim: fine })], offered).kept).toHaveLength(1);
   });
 
   test("a question mark inside a statement is not a question", () => {

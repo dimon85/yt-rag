@@ -14,7 +14,8 @@ import { parse as parseYaml } from "yaml";
 import { GoogleGenAI } from "@google/genai";
 import {
   type Annotated, ClashSchema, COMPLEMENT_PROMPT, ComplementSchema, duplicateOf,
-  type Passage, POOLED_PROMPT, PROMPT, renderPassages, verify, verifyComplements,
+  type Passage, POOLED_PROMPT, PROMPT, renderDated, renderPassages, REVISION_PROMPT,
+  RevisionSchema, verify, verifyComplements, verifyRevisions,
 } from "./clash.ts";
 import { AD_PATTERN, hasPhrase, score, tile } from "./candidates.ts";
 import { CACHE_DIR, loadCorpus, ROOT, type Stance } from "./corpus.ts";
@@ -25,13 +26,16 @@ usage: pnpm pairs --tool ID [--relation R] [--topic ID] [--sides S] [--contra S]
                   [--width S] [--limit N] [--model ID]
        pnpm pairs --cells [--sides S]
 
-  --relation R  clash | complement (default clash)
+  --relation R  clash | complement | revision (default clash)
                 clash finds passages that cannot both be true, for a
                 contradiction question. complement finds passages that each
                 cover part of one subject where neither covers it alone, for a
                 comparative question — the cheaper of the two, since two
                 authors need only cover different parts of a thing rather than
-                disagree about it.
+                disagree about it. revision finds one author contradicting his
+                own earlier video, which corpus.yaml names as the second source
+                of contradictions and nothing was mining; it needs --channel.
+  --channel N   restrict to one channel, exactly as named in corpus.yaml
   --tool ID     tool the pair must be about (required)
   --topic ID    restrict to passages matching the topic's spoken keywords
   --sides S     stance | any (default stance)
@@ -62,6 +66,7 @@ const { values } = (() => {
         tool: { type: "string" },
         topic: { type: "string" },
         relation: { type: "string", default: "clash" },
+        channel: { type: "string" },
         sides: { type: "string", default: "stance" },
         contra: { type: "string", default: "skeptical" },
         width: { type: "string", default: "45" },
@@ -86,13 +91,14 @@ const CONTRA_SETS: Record<string, Stance[]> = {
 const contraStances = CONTRA_SETS[values.contra!]
   ?? usage(`--contra must be one of ${Object.keys(CONTRA_SETS).join(" | ")}`);
 
-if (!["clash", "complement"].includes(values.relation!)) {
-  usage("--relation must be clash or complement");
+if (!["clash", "complement", "revision"].includes(values.relation!)) {
+  usage("--relation must be clash, complement or revision");
 }
 const complement = values.relation === "complement";
+const revision = values.relation === "revision";
 // A complement is defined across authors, not across stances, so the stance
 // split has nothing to say about it.
-const pooled = values.sides === "any" || complement;
+const pooled = values.sides === "any" || complement || revision;
 if (!["stance", "any"].includes(values.sides!)) usage("--sides must be stance or any");
 
 const widthS = Number(values.width);
@@ -121,6 +127,7 @@ function passagesFor(tool: string, topic?: string): { pro: Sourced[]; contra: So
   const contra: Sourced[] = [];
 
   for (const v of cfg.videos) {
+    if (values.channel && v.channel !== values.channel) continue;
     const stance = stanceOf.get(v.channel);
     if (!stance) continue;
     // Pooled mode puts everything in one list, so `pro` is simply "the list".
@@ -140,6 +147,7 @@ function passagesFor(tool: string, topic?: string): { pro: Sourced[]; contra: So
         id: `${side === pro ? "p" : "c"}${side.length + 1}`,
         video: v.youtube_id,
         channel: v.channel,
+        published_at: v.published_at,
         start_s: w.start_s,
         end_s: w.end_s,
         text: w.text,
@@ -198,12 +206,25 @@ if (values.cells) {
 
 if (!values.tool) usage("--tool is required");
 
+if (revision && !values.channel) {
+  // A revision is defined within one author, so pooling every channel would
+  // only invite the model to pair two people and call it a change of mind.
+  console.error("--relation revision needs --channel. Channels in the corpus:\n");
+  const counts = new Map<string, number>();
+  for (const v of cfg.videos) counts.set(v.channel, (counts.get(v.channel) ?? 0) + 1);
+  for (const [name, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+    console.error(`  ${String(n).padStart(2)} videos  ${name}`);
+  }
+  process.exit(2);
+}
+
 const all = passagesFor(values.tool, values.topic);
 const pro = rank(all.pro).slice(0, perSide);
 const contra = rank(all.contra).slice(0, perSide);
 
 console.log(
-  `${values.tool}${values.topic ? ` / ${values.topic}` : ""}: ` +
+  `${values.tool}${values.topic ? ` / ${values.topic}` : ""}` +
+  `${values.channel ? ` / ${values.channel}` : ""}: ` +
   (pooled
     ? `${pro.length} passages of ${all.pro.length}, pooled`
     : `${pro.length} pro of ${all.pro.length}, ${contra.length} contra of ${all.contra.length}`),
@@ -225,16 +246,64 @@ const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) usage("GEMINI_API_KEY is not set — put it in .env, see .env.example");
 
 const ai = new GoogleGenAI({ apiKey });
-const res = await ai.models.generateContent({
+/**
+ * One retry loop around the request.
+ *
+ * A run died on `SocketError: other side closed` after assembling its
+ * passages, which threw away the assembly and the request alike. The embedder
+ * has waited on transient failures since its own first run; this had nothing,
+ * for no better reason than that it was written later.
+ *
+ * A quota refusal is not retried here: `quotaKind` in the embedder exists
+ * because retrying a daily limit only burns time, and the same holds for a
+ * generation quota.
+ */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const message = String((e as Error).message ?? e);
+      if (i >= attempts || /quota|RESOURCE_EXHAUSTED|NOT_FOUND|API key/i.test(message)) throw e;
+      const waitMs = 2000 * i;
+      console.error(`  request failed (${message.slice(0, 80)}), retrying in ${waitMs / 1000}s`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+}
+
+const res = await withRetry(() => ai.models.generateContent({
   model: values.model!,
-  contents: complement
+  contents: revision
+    ? `${REVISION_PROMPT}\n\n${renderDated(pro)}`
+    : complement
     ? `${COMPLEMENT_PROMPT}\n\n${renderPassages(pro)}`
     : pooled
       ? `${POOLED_PROMPT}\n\n${renderPassages(pro)}`
       : `${PROMPT}\n\n${renderPassages(pro, contra)}`,
   config: {
     responseMimeType: "application/json",
-    responseSchema: complement
+    responseSchema: revision
+      ? {
+        type: "object",
+        properties: {
+          revisions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                claim: { type: "string" },
+                earlier_id: { type: "string" },
+                later_id: { type: "string" },
+                why: { type: "string" },
+              },
+              required: ["claim", "earlier_id", "later_id", "why"],
+            },
+          },
+        },
+        required: ["revisions"],
+      }
+      : complement
       ? {
         type: "object",
         properties: {
@@ -276,10 +345,14 @@ const res = await ai.models.generateContent({
         required: ["clashes"],
       },
   },
-});
+}));
 
 const raw = JSON.parse(res.text ?? "{}");
-const parsed = complement ? ComplementSchema.safeParse(raw) : ClashSchema.safeParse(raw);
+const parsed = revision
+  ? RevisionSchema.safeParse(raw)
+  : complement
+    ? ComplementSchema.safeParse(raw)
+    : ClashSchema.safeParse(raw);
 if (!parsed.success) {
   console.error("the model returned something the schema rejects:");
   console.error(parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n"));
@@ -308,7 +381,22 @@ let proposed: number;
 let verified: number;
 const rejections: { reason: string; claim: string }[] = [];
 
-if (complement) {
+if (revision) {
+  const { revisions } = parsed.data as { revisions: import("./clash.ts").Revision[] };
+  const { kept, rejected } = verifyRevisions(revisions, offered);
+  proposed = revisions.length;
+  verified = kept.length;
+  console.log(`\n${proposed} proposed, ${verified} verified\n`);
+  for (const r of kept) {
+    const already = dupe(r.earlier, r.later);
+    console.log(r.claim);
+    if (already) console.log(`  ALREADY ASKED as ${already}`);
+    console.log(`  ${r.why}`);
+    console.log(`  earlier ${r.earlier.published_at}  ${where(r.earlier)}`);
+    console.log(`  later   ${r.later.published_at}  ${where(r.later)}\n`);
+  }
+  rejections.push(...rejected.map(({ revision: v, reason }) => ({ reason, claim: v.claim })));
+} else if (complement) {
   const { pairs } = parsed.data as { pairs: import("./clash.ts").Complement[] };
   const { kept, rejected } = verifyComplements(pairs, offered);
   proposed = pairs.length;

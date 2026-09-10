@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { type Annotated, duplicateOf, type Passage } from "../src/clash.ts";
 
 const p = (video: string, start_s: number, end_s: number): Passage =>
-  ({ id: "x", video, channel: "Someone", start_s, end_s, text: "" });
+  ({ id: "x", video, channel: "Someone", published_at: "2026-01-01", start_s, end_s, text: "" });
 
 const q = (slug: string, spans: [string, number, number][]): Annotated => ({
   slug,

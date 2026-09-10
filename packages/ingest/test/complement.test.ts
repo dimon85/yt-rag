@@ -4,7 +4,7 @@ import {
 } from "../src/clash.ts";
 
 const passage = (id: string, video: string, text = "some words"): Passage => ({
-  id, video, channel: "Someone", start_s: 10, end_s: 40, text,
+  id, video, channel: "Someone", published_at: "2026-01-01", start_s: 10, end_s: 40, text,
 });
 
 const pair = (over: Partial<Complement> = {}): Complement => ({

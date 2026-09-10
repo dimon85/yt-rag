@@ -1,4 +1,4 @@
-# Version 15: 89 questions (5 contradictions, every one of them cross-author)
+# Version 16: 92 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 15
+version: 16
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1467,3 +1467,99 @@ questions:
           David Ondrej on the cost: "Hermes is the newest project... going to
           have the most bugs, going to have the most unpolished things", the
           terminal interface still rough. Also names the migration command.
+
+  # ── contradictions, batch 3: one author, changing position ──────────────────
+  # Found with `pnpm pairs --relation revision`, which reads one channel's
+  # videos in date order. corpus.yaml's selection_rules names outdated claims as
+  # the second source of contradictions and the 12-18 month range exists for it,
+  # but nothing was mining it: the clash search requires two different authors,
+  # by design, because a speaker qualifying himself inside one video has not
+  # contradicted anyone.
+  #
+  # The two spans still come from two different videos, so the metric is not
+  # weakened. A same-video pair would be satisfied by any retriever returning
+  # two adjacent chunks, and that reason holds exactly as well when the author
+  # is arguing with his past self.
+
+  - slug: opus-code-quality-retraction
+    text: Does the strongest Claude model write better code than an average developer?
+    kind: contradiction
+    topics:
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: Y8cY1DEURtE
+        start_s: 986.76
+        end_s: 1082.28
+        side: pro
+        note: >
+          Theo, 2026-07-28: "since Opus 4.5... The average person writes worse
+          code than the average thing using Opus 4.5 or newer."
+      - video: Q7n0PGbMW_U
+        start_s: 357.96
+        end_s: 451.32
+        side: contra
+        note: >
+          Theo, 2026-08-31, retracting it in as many words: "Opus and Sonnet...
+          are just not good right now. I thought Opus would be good. I was
+          wrong... I am sorry for saying it was good when it's not." The
+          clearest revision in the corpus, because the author marks it as one.
+
+  - slug: subscription-subsidy-dispute
+    text: Are the monthly plans sold below what the usage costs, or does the API simply
+      carry a large markup?
+    kind: contradiction
+    topics:
+      - cost
+    tools:
+      - claude-code
+      - codex
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 358.16
+        end_s: 452.56
+        side: pro
+        note: >
+          David Ondrej, 2026-09-02: "OpenAI has more compute. They're willing to
+          subsidize it more... do not pay API pricing... there is no subsidy."
+      - video: 40ikbH0Ba-g
+        start_s: 1618.4
+        end_s: 1712.4
+        side: contra
+        note: >
+          The same author, 2026-06-29, denying it: "a lot of people think
+          they're subsidized... Actually, that's not really the case. The case
+          is that they just have disgusting profit margins on the API." Here the
+          contra span is the earlier one — a revision does not always run from
+          denial to assertion.
+
+  - slug: hidden-reasoning-extractable
+    text: Can anyone get at the reasoning a model hides before it answers?
+    kind: contradiction
+    topics:
+      - context-window
+      - reliability
+    tools:
+      - claude-code
+    source: hand
+    gold:
+      - video: r_dw-1109Ag
+        start_s: 1077.64
+        end_s: 1172.12
+        side: pro
+        note: >
+          Theo, 2026-09-03: "There were tricks you could do to try and get them
+          out though, like if you edit earlier in the history..." — described
+          while explaining that the trick has since been blocked.
+      - video: ypO0q_8zhWw
+        start_s: 1616.64
+        end_s: 1712.24
+        side: contra
+        note: >
+          The same author, 2026-06-30, stating it as impossible: "we can't see
+          them. We just have to trust them... all of this information is hidden
+          from us. You don't see the reasoning traces."
