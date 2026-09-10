@@ -407,6 +407,20 @@ rate, which is what they are for.
   return garbage when the answer is not in the corpus at all. Most RAG systems
   fail here and nobody measures it
 
+  It needs a threshold below which the system declines to answer, and the
+  threshold is the whole metric: a plain top-k retriever always returns k
+  results, so without an abstention rule the rate is 1 by construction. It also
+  needs enough negatives to say anything. On the first 32, a threshold keeping
+  90% of answerable questions admitted 94% of negatives under BM25 — the score
+  distributions overlap almost entirely. Under local embeddings the same
+  threshold admitted 72%, and at the median answerable score 6% against BM25's
+  22%.
+
+  That is the first real trade-off the project has found: the retriever that is
+  worse at recall (37.5% against 50.0%) is markedly better at knowing when to
+  stay quiet. Chosen on recall alone, the system would confidently answer three
+  out of four questions that have no answer.
+
 **Cost and speed:**
 - cost per 1000 queries (query embedding + rerank)
 - one-off indexing cost per configuration (stored in `chunk_sets`)
@@ -414,14 +428,61 @@ rate, which is what they are for.
 
 ---
 
-## Golden set: 90 questions
+## Golden set: 106 questions
 
 The most important and most tedious part. Without it the project is a demo.
 
 - **36 factual** — the answer sits in one specific place in one video
 - **22 comparative** — requires ≥2 different videos
 - **18 contradiction** — different authors say the opposite, both sides labelled
-- **14 negative** — the answer is not in the corpus, the correct result is empty
+- **30 negative** — the answer is not in the corpus, the correct result is empty
+
+The first three carry `recall@k`; 36 + 22 + 18 = 76 is the number the power
+calculation below is about. Negatives contribute nothing to it, so their count
+is set by what false-positive rate needs rather than by proportion.
+
+**The split between the first three is a budget, not a requirement.** Only the
+total of 76 governs what the set can detect, and 18 contradictions turned out
+to be the one line item the corpus may not be able to fill. Searching every
+tool over the whole corpus for passages that cannot both be true returns the
+same four disputes, each with several independent sources — see `pnpm clashes`.
+Four is a lower bound from one method with known blind spots: it only reads
+windows that name a tool, and it rejects two claims from one author separated
+in time, which `selection_rules` names as the second source of contradictions.
+But it is not close to eighteen.
+
+The shortfall belongs in comparative questions, and the arithmetic is in
+`pnpm power --contradictions 5`: at 36 + 22 + 5 the pool is 63 and the
+detectable difference widens from 10.5 to 12.5 pp, while 36 + 35 + 5 is 76
+again and detects the same 10.5 pp as the original design. Comparative
+questions need two videos on one subject, which this corpus has in quantity;
+a flat disagreement between two authors it evidently does not. Moving the
+budget costs nothing measurable. Lowering the total costs 2 pp of resolution
+in the range where chunking differences actually live.
+
+**Negatives carry two topics, not one.** `absent` says the answer is not in the
+corpus; the second says what the question is *about*. Of the 32 written, 19 have
+a real counterpart in the corpus — an MCP question about a tool that is absent,
+asked of a corpus holding 21 passages on MCP setup — and 13 do not. Those are
+different questions in everything but their label, and one false-positive rate
+averages them into a number that hides which half a system fails on.
+
+The split is assigned by reading the question, never from a retriever's score.
+Labelling by score would tune the set to the retriever it exists to test, which
+is the mistake the ceiling gate forbids in the other direction. The hardness is
+real: top-1 BM25 scores across the 32 range from 9.4 to 19.3.
+
+A proportional split would give 14, scaled from an earlier 40-question design —
+inherited arithmetic rather than a decision. The four kinds differ in both cost
+and value. Negatives are the cheapest question in the set: no transcript to
+read, no span to pin down, `gold: []`, and the four absent tools were verified
+at zero mentions across all 78 transcripts. They are also the only input to
+false-positive rate, one of the two metrics that distinguish this project.
+
+At 14 questions a perfect result — no false positives at all — reads as
+"somewhere between 0% and 23%" with a Clopper-Pearson interval. At 30 it reads
+as "0% to 12%". Roughly an extra hour of writing halves the interval on a
+headline number, which is the best trade available anywhere in the set.
 
 ### Why 90 and not 40
 
@@ -435,6 +496,10 @@ configuration comparison is 36 + 22 + 18 = **76**.
 | 60 | 51 | 15.5 pp | 6 h |
 | **90** | **76** | **10.5 pp** | **9 h** |
 | 120 | 102 | 8.0 pp | 12 h |
+
+Recomputable with `pnpm power`, which is how the four figures above are now
+checked — a test asserts them, so a change to the set cannot quietly leave the
+table stale. They were written down once before anything could re-derive them.
 
 Paired design, power 0.8, α 0.05, deterministic retrieval. Differences between
 chunking strategies realistically live in the 5–15 pp range. At 40 questions the
@@ -478,14 +543,84 @@ Levers also give control pairs for free — the same question shape with and
 without a superseding marker in the transcript ("it used to be 5 hours, now
 it's 50"). That is a finding for the README, not just a bigger set.
 
+### Generating questions, and what it costs
+
+Writing 106 questions by hand is the largest single cost in the project, so
+generation was measured rather than argued about. Five passages, one question
+each, two methods, overlap measured against the original passage:
+
+| method | mean overlap | range |
+|---|---|---|
+| naive — read the passage, write a question | 64% | 45-100% |
+| two-stage bottleneck | 25% | 0-43% |
+| written by hand, for comparison (48 questions) | ~33% | 0-70% |
+
+The naive method inherits the passage's vocabulary, which is the failure that
+matters: a question found by term matching alone scores well for every
+configuration and drops out of the comparison. One of the five came out at 100%.
+
+The bottleneck is two calls with an information gap between them. The first
+states the claim in its own words; the second sees *only* that sentence, never
+the passage, and writes the question. Its distribution lands on top of the
+hand-written one.
+
+It is not sufficient on its own. Overlap says nothing about whether the passage
+actually answers the generated question, and a plausible-looking question about
+something the passage does not address is a worse defect than high overlap,
+because nothing automated catches it. So generation is followed by two checks:
+the overlap thresholds, and a person reading the span to confirm the answer is
+in it. The second is quick — the span is already on screen — but it does not
+automate away.
+
+**Wording is checked from both ends.** `pnpm golden` warns above 75% content-word
+overlap with the span a question points at, and below 15%. Neither is a verdict:
+a question about the context window has to say "context window", and one phrased
+in entirely different words can still be findable by meaning.
+
+**The floor flags two different things and cannot tell them apart.** One is a
+question the corpus does not answer — a wrong annotation. The other is a good
+question phrased in entirely different words from the passage that answers it.
+
+The second is not a defect. It is the most valuable question type in the set,
+because it is the only kind that separates lexical retrieval from semantic
+retrieval, and separating those is what the ablation is for. One question sits
+at 10% overlap, is never found by BM25 at any chunk size, and *is* found by
+local embeddings at 128 tokens. Raising its overlap would delete exactly the
+signal it carries.
+
+That happened once. Both questions tripping the floor were rephrased on the
+grounds that no retriever found them, and for one of them that was simply
+untrue: only the 512-token runs had been checked. It has been reverted, and the
+note on it now says why it stays at 10%. The other, at 0%, was found by nothing
+at any size and stays rephrased.
+
+So the floor is a prompt to check that the answer really is in the span, not a
+prompt to rewrite.
+
+The measure also does not stem, which showed up in the same place: that question
+says "skills" and "replaced" where the passage says "skill" and "replacement",
+so part of its 10% is an artefact rather than a real gap. It reads lower than a
+person would judge — the safe direction for a warning, but worth knowing when
+reading one.
+
 ### What 90 does not buy
 
-Per-`kind` comparisons. 18 contradiction and 14 negative questions cannot
+Per-`kind` comparisons. 18 contradiction and 30 negative questions cannot
 support "configuration A beats B on contradictions" — at that size the
 detectable difference is far larger than any real effect. Contradiction coverage
 and false-positive rate stay the metrics that distinguish this project, but they
 are reported as a proportion with a Clopper-Pearson interval, not as a
 comparison between configurations.
+
+The numbers, since the claim is checkable (`pnpm power`): at 18 paired
+questions the detectable difference is 40.5 pp, and a 20 pp difference — far
+larger than anything chunking produces — is found 13% of the time. At the 5
+written so far, no difference in the whole range from 0 to 100 pp reaches 80%
+power, which is why `mdePaired` returns nothing rather than a large number.
+This is not a shortfall against the design; the design never claimed
+otherwise. It is worth stating in figures because a printed 2/5 against 0/5
+invites exactly the comparison this section forbids, and `pnpm ceiling` used
+to drop its warning about that at n=5.
 
 ### Rules
 
@@ -511,7 +646,7 @@ comparison between configurations.
 - Manual check on 5 questions
 
 **Week 2 — metrics and ablation**
-- Golden set of 90 questions (see the power calculation above)
+- Golden set of 106 questions, 76 of them carrying recall (see above)
 - Wire up the existing JSONL runner and `report.mjs`
 - Metric code + **tests for the metric code**
 - 12 configurations × 3 runs

@@ -1,4 +1,4 @@
-# Version 2: 15-question adversarial pilot; golden_sha: 55ccf9d46818880e
+# Version 12: 81 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -18,14 +18,17 @@
 #
 #   factual        exactly one gold span — the answer sits in one place
 #   comparative    spans from 2+ different videos
-#   contradiction  both a pro and a contra span; same-video pairs are allowed
+#   contradiction  both a pro and a contra span. Same-video pairs pass the
+#                  validator, but measure much less than they appear to: any
+#                  retriever returning two nearby chunks scores full coverage.
+#                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 3
+version: 12
 
 questions:
   - slug: cc-session-cap-tiers
-    text: Which paying customers got more headroom when the session cap changed?
+    text: For which tariff plans was the Claude limit increased?
     kind: factual
     topics: [ cost ]
     tools: [ claude-code ]
@@ -33,7 +36,10 @@ questions:
       - video: Q7n0PGbMW_U
         start_s: 292.48
         end_s: 310.4
-        note: names the three tiers; dated claim, contradicted later in the same video
+        note: Names the three tiers; dated claim, contradicted later in the same video.
+          Rephrased from a version at 0% content-word overlap that no retriever
+          found at any chunk size — that is not a hard question, it is an
+          unreachable one.
   - slug: cc-fast-mode-short-command
     text: What terminal command switches Claude Code into its faster mode?
     kind: factual
@@ -48,7 +54,8 @@ questions:
         note: Six-second command span. Do not widen merely to make overlap scoring
           easier.
   - slug: mcp-skill-replacement-tradeoff
-    text: What becomes harder to guarantee if MCP integrations are replaced entirely by skills and shell commands?
+    text: What becomes harder to predict if MCP-based integrations are completely
+      replaced by shell commands and scripts?
     kind: factual
     topics:
       - migration
@@ -58,10 +65,18 @@ questions:
       - video: 3wglqgskzjQ
         start_s: 638.92
         end_s: 659.36
-        note: The passage qualifies the proposed replacement; retain the explanation of
-          the safeguard.
+        note: 'The passage qualifies the proposed replacement; retain the explanation of
+          the safeguard. KEPT at 10% content-word overlap on purpose. BM25 does
+          not find it at any chunk size and local embeddings at 128 tokens do —
+          which makes it one of the few questions in the set that separates one
+          retriever from another. It was briefly rephrased to 33% on the
+          mistaken grounds that nothing found it; only the 512-token runs had
+          been checked. Part of the 10% is also an artefact: the question says
+          "skills" and "replaced" where the passage says "skill" and
+          "replacement", and the overlap measure does not stem.'
   - slug: mcp-selective-eager-action
-    text: With lazy loading, how can one operation stay immediately available while the rest of a server stays hidden?
+    text: With lazy loading, how can one operation stay immediately available while
+      the rest of a server stays hidden?
     kind: factual
     topics:
       - mcp-setup
@@ -74,7 +89,8 @@ questions:
         end_s: 730.56
         note: Includes the server default and the per-action exception.
   - slug: codex-goal-completion-owner
-    text: Who decides that a Codex task is finished, and how does that differ from the way Hermes decides?
+    text: Who decides that a Codex task is finished, and how does that differ from
+      the way Hermes decides?
     kind: factual
     topics:
       - autonomy
@@ -87,7 +103,8 @@ questions:
         note: Both systems are compared in one contiguous passage, so this is factual
           rather than multi-video comparative.
   - slug: cc-sdk-commercial-auth
-    text: Which credential is recommended for building a commercial product on the Claude SDK?
+    text: What credentials are recommended for creating a commercial product based
+      on the Claude SDK?
     kind: factual
     topics:
       - migration
@@ -100,7 +117,8 @@ questions:
         end_s: 624.64
         note: 8.92-second span; historical description, not current policy guidance.
   - slug: agent-scheduled-action-failure
-    text: What went wrong with a scheduled morning email task that undermined trust in leaving an agent team unattended?
+    text: What went wrong with a scheduled morning email task that undermined trust
+      in leaving an agent team unattended?
     kind: factual
     topics:
       - reliability
@@ -115,7 +133,8 @@ questions:
         note: This concerns the agent-team workflow in the discussion, not a controlled
           attribution of the failure to either model.
   - slug: cc-model-specific-allowance
-    text: Why could someone have subscription limit left over and still be unable to keep using their preferred model?
+    text: Why could someone have subscription limit left over and still be unable to
+      keep using their preferred model?
     kind: factual
     topics:
       - cost
@@ -128,7 +147,8 @@ questions:
         note: The dollar amounts are illustrative; do not interpret them as measured
           billing figures.
   - slug: skills-versus-tool-discovery
-    text: Why do skills and MCP servers both avoid exposing every capability at startup?
+    text: Why do skills and MCP servers both avoid exposing every capability at
+      startup?
     kind: comparative
     topics:
       - context-window
@@ -145,7 +165,8 @@ questions:
         end_s: 696.64
         note: Read the discovery mechanism and deferred visibility behavior.
   - slug: goal-loop-versus-dynamic-workflows
-    text: What two different ways are described for driving a large task forward without spelling out every step?
+    text: What two different ways are described for driving a large task forward
+      without spelling out every step?
     kind: comparative
     topics:
       - autonomy
@@ -163,7 +184,9 @@ questions:
         end_s: 1234.2
         note: Covers outcome-driven orchestration and dynamically launched workers.
   - slug: cursor-subscription-value-tradeoff
-    text: What is the tradeoff between a Cursor subscription and the model providers' own plans, and what explains the difference in usage?
+    text: What is the trade-off between a Cursor subscription and the pricing plans
+      offered directly by model providers, and what accounts for the difference
+      in usage?
     kind: comparative
     topics:
       - cost
@@ -198,7 +221,7 @@ questions:
         end_s: 274.88
         note: Unused tool definitions and progressive disclosure.
   - slug: cc-third-party-policy-reversal
-    text: Can a Claude subscription be used through third-party agent tools, or not?
+    text: Can the Claude subscription be used via third-party agent tools?
     kind: contradiction
     topics:
       - migration
@@ -206,12 +229,46 @@ questions:
     tools:
       - claude-code
     gold:
+      # Added after `pnpm clashes` made the defect visible: every gold span here
+      # came from one video, so any retriever returning two nearby chunks scored
+      # full contradiction coverage. The dispute is between authors, and until
+      # this span was added the question could not measure that.
+      - video: HAkSUBdsd6M
+        start_s: 807.72
+        end_s: 859.12
+        side: pro
+        note: >
+          Cole Medin, asserting it in his own voice rather than reporting it:
+          "you are allowed to use your Anthropic or Codex subscription with the
+          harness... so you don't have to pay for API credits", attributed to an
+          Anthropic team member's clarification.
       - video: 8IDzBRRFnQU
         start_s: 547.24
         end_s: 563.04
         side: pro
         note: Reports later permission for CLI-style usage, qualified by the production
           API recommendation; not unlimited third-party permission.
+      # Both spans above and below are 8IDzBRRFnQU reporting a timeline of other
+      # people's statements — the video quotes the permission and the ban alike.
+      # That made the contra label fragile: retrieval could return it and a
+      # reader would not know which side it argued. These two are the same
+      # claim asserted by the authors themselves, which is what the side label
+      # is supposed to mean.
+      - video: f8cfH5XX-XU
+        start_s: 1617.12
+        end_s: 1712.56
+        side: contra
+        note: >
+          IndyDevDan in his own voice: "they're really locking down the usage of
+          their plan. You can really only use their plan on cloud code or the
+          API keys... They finally shut it down."
+      - video: Q7n0PGbMW_U
+        start_s: 807.16
+        end_s: 902.24
+        side: contra
+        note: >
+          Theo: "how strict Anthropic is about how you can use your sub, banning
+          people for even having Open Claude mentioned in their commit history".
       - video: 8IDzBRRFnQU
         start_s: 474.84
         end_s: 494.56
@@ -219,7 +276,8 @@ questions:
         note: Reports the earlier blanket exclusion. Both statements occur in the same
           recording; this is a policy reversal, not two simultaneous policies.
   - slug: tabnine-offline-activation
-    text: How do I activate Tabnine on a developer's computer that can't connect to the internet?
+    text: How do I activate Tabnine on a developer's computer that can't connect to
+      the internet?
     kind: negative
     topics:
       - absent
@@ -236,7 +294,8 @@ questions:
       - jetbrains-ai
     gold: []
   - slug: cc-limit-extension-boundary
-    text: Why did people feel they were getting less value from their plan for a while?
+    text: Why did it seem to people for a time that they were getting less value
+      from their plan?
     kind: factual
     topics:
       - cost
@@ -251,11 +310,11 @@ questions:
           cumulative token count for this video crosses 1536 at 361.2s, which
           falls inside this span. Neither chunk contains the whole answer.
           Expected: the earlier chunk covers 6.6s of a 10.2s span, so
-          overlap/min = 0.64 and it is a hit; the later chunk covers 3.6s,
-          gives 0.36, and is not. Checks the coverage rule at the one place
-          chunking can silently lose an answer.
+          overlap/min = 0.64 and it is a hit; the later chunk covers 3.6s, gives
+          0.36, and is not. Checks the coverage rule at the one place chunking
+          can silently lose an answer.
   - slug: mcp-code-orchestration-savings
-    text: How does moving orchestration into code instead of tool calls cut token use?
+    text: How does moving orchestration into code reduce token consumption?
     kind: factual
     topics:
       - context-window
@@ -303,3 +362,885 @@ questions:
       # the minimal-coverage case: this is the only video carrying a "the agent
       # failed while unattended" claim, so the contra side has exactly one
       # source and top-k has one chance to find it.
+
+      # ── negatives, batch 2 ──────────────────────────────────────────────────────
+      # All four tools in `tools_deliberately_absent` (corpus.yaml). Verified absent
+      # from the 78 cached transcripts: tabnine, jetbrains/intellij/pycharm,
+      # "amazon q"/"q developer"/codewhisperer and continue.dev return zero hits.
+      #
+      # Deliberately mixed in difficulty. The easy ones name a thing only the absent
+      # tool has, so nothing in the corpus is even lexically close. The hard ones are
+      # phrased in the corpus's own vocabulary — context window, rate limits, yolo
+      # mode, MCP servers, unit tests — so the nearest neighbour is always non-empty
+      # and a retriever that answers from the closest chunk will answer wrongly.
+      # That is the false positive these questions exist to catch, and a set of only
+      # easy negatives would report a clean abstention rate that means nothing.
+
+  - slug: tabnine-team-model-training
+    text: Which repositories does Tabnine use to train the model that only we can
+      send queries to?
+    kind: negative
+    topics: [ absent ]
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-self-hosted-gpu
+    text: What equipment is required to deploy Tabnine on-premises (self-hosted) to
+      support fifty developers?
+    kind: negative
+    topics: [ absent ]
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-completion-latency
+    text: How long does it take for Tabnine to provide an autocomplete suggestion
+      directly in the line of code, and does the service run more slowly on the
+      free plan?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-seat-pricing-tier
+    text: How much does a single Tabnine license cost per month, and what features
+      are available under the Enterprise plan?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-unsupervised-diff-review
+    # Hard: "left to run", "review the diff" are autonomy keywords, so the
+    # nearest chunks are the agent-autonomy argument this set already annotates.
+    text: How much work can the Tabnine agent perform autonomously before a review
+      of the changes (diff) is required?
+    kind: negative
+    topics:
+      - absent
+      - autonomy
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-large-codebase-context
+    # Hard: phrased entirely in context-window vocabulary.
+    text: How large a codebase volume can Tabnine keep in context before it starts
+      discarding files?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ tabnine ]
+    gold: []
+  - slug: tabnine-mcp-server-registration
+    # Hard: MCP setup is one of the best-covered topics in the corpus.
+    text: Where should the configuration file that registers the MCP server in
+      Tabnine be located?
+    kind: negative
+    topics:
+      - absent
+      - mcp-setup
+    tools: [ tabnine ]
+    gold: []
+
+  - slug: jetbrains-ai-quota-reset
+    text: When does the JetBrains AI credit quota refresh, and what happens to
+      current work once the credits are exhausted?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-local-model
+    text: Can JetBrains AI Assistant respond using a model running on my own
+      computer, without sending requests externally?
+    kind: negative
+    topics: [ absent ]
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-license-bundle
+    text: Which JetBrains subscription includes the AI ​​Assistant license, and can
+      this license be purchased separately?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-generated-unit-tests
+    # Hard: unit-test generation is a live topic in the corpus for other tools.
+    text: How reliable are the unit tests written by JetBrains AI Assistant—do they
+      compile on the first try?
+    kind: negative
+    topics:
+      - absent
+      - testing
+      - reliability
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-plugin-switch-reason
+    # Hard: migration phrasing ("switched from", "instead of") plus Copilot,
+    # which the corpus mentions 15 times without ever answering this.
+    text: Why might someone decide to switch from their current IDE plugin to
+      JetBrains AI Assistant?
+    kind: negative
+    topics:
+      - absent
+      - migration
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-monorepo-indexing
+    text: How long does it take for JetBrains AI Assistant to index a monorepo
+      containing a million lines of code before it can answer questions about
+      it?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ jetbrains-ai ]
+    gold: []
+  - slug: jetbrains-ai-inline-prompt-shortcut
+    text: Which keyboard shortcut opens the built-in AI prompt in JetBrains IDEs?
+    kind: negative
+    topics: [ absent ]
+    tools: [ jetbrains-ai ]
+    gold: []
+
+  - slug: amazon-q-repository-permissions
+    text: What permissions must be granted to the developer so that Amazon Q
+      Developer can access a private repository?
+    kind: negative
+    topics: [ absent ]
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-java-upgrade-agent
+    text: What does the Amazon Q Developer upgrade agent do if a Java version
+      upgrade breaks a dependency?
+    kind: negative
+    topics:
+      - absent
+      - reliability
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-free-tier-allowance
+    # Hard: cost/limits vocabulary, the most densely covered topic in the corpus.
+    text: How many requests to the agent per month does the Amazon Q Developer free
+      tier allow before the limit is reached?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-cli-auto-accept
+    # Hard: "auto accept" and "without asking" are autonomy keywords.
+    text: Can the Amazon Q command-line interface be configured to apply changes
+      without prompting for confirmation every time?
+    kind: negative
+    topics:
+      - absent
+      - autonomy
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-project-context-files
+    # Hard: context-window vocabulary.
+    text: Which files does Amazon Q Developer use to build the project context, and
+      how can specific files be excluded from this process?
+    kind: negative
+    topics:
+      - absent
+      - context-window
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-security-scan-rules
+    text: What classes of vulnerabilities does the Amazon Q code scanner report, and
+      can its rules be customized?
+    kind: negative
+    topics:
+      - absent
+      - testing
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-region-availability
+    # Hard by shared proper noun: 14 transcripts mention AWS, none mention Q.
+    text: In which AWS regions is Amazon Q Developer unavailable, and what do teams
+      use instead?
+    kind: negative
+    topics: [ absent ]
+    tools: [ amazon-q ]
+    gold: []
+  - slug: amazon-q-mcp-support
+    # Hard: the corpus explains MCP at length, just never for this tool.
+    text: Does Amazon Q Developer support the Model Context Protocol, and how can a
+      server be added to it?
+    kind: negative
+    topics:
+      - absent
+      - mcp-setup
+    tools: [ amazon-q ]
+    gold: []
+
+  - slug: continue-self-hosted-endpoint
+    text: How do I configure Aim Continue to use a custom model endpoint of my
+      choice, rather than one from a cloud provider?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-custom-slash-command
+    text: How do I add a custom slash command to Continue, and where should its
+      definition be located?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-telemetry-opt-out
+    text: What data does Continue send to the server by default, and how can this be
+      disabled?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-autocomplete-model-split
+    text: Does Continue use a different model for autocomplete than the one used for
+      chat, and is it possible to separate them?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-shared-team-assistant
+    text: How can a team use a shared configuration for the Continue assistant
+      across all its members?
+    kind: negative
+    topics: [ absent ]
+    tools: [ continue ]
+    gold: []
+  - slug: continue-token-burn-refactor
+    # Hard: "burn through tokens" is verbatim cost-topic vocabulary.
+    text: How quickly does Continue consume tokens during large-scale refactoring
+      compared to a tool that operates on a fixed-fee subscription model?
+    kind: negative
+    topics:
+      - absent
+      - cost
+    tools: [ continue ]
+    gold: []
+  - slug: continue-agent-half-applied-edits
+    # Hard: reliability vocabulary, and the corpus is full of agents failing.
+    text: How often does Continue's agent mode leave changes only partially applied
+      and silently stop working?
+    kind: negative
+    topics:
+      - absent
+      - reliability
+    tools: [ continue ]
+    gold: []
+  - slug: continue-jetbrains-plugin-parity
+    text: Can the Continue plugin for JetBrains IDEs do everything the VS Code
+      plugin can?
+    kind: negative
+    topics:
+      - absent
+      - migration
+    tools: [ continue, jetbrains-ai ]
+    gold: []
+  - slug: cursor-antigravity-rivalry
+    text: Is Google Antigravity a real competitor to Cursor at the moment?
+    kind: factual
+    topics:
+      - migration
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: mAwJYUJib1I
+        start_s: 567.16
+        end_s: 604.72
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-ultra-run-length
+    text: How long can Claude Code run in Ultra mode before stopping?
+    kind: factual
+    topics:
+      - autonomy
+      - cost
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 8jDXI4_rJOE
+        start_s: 1406.52
+        end_s: 1441.88
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-terminal-multiplexer
+    text: The best terminal app for simultaneously running multiple Claude code
+      agents?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 567.36
+        end_s: 602.28
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-usage-streak
+    text: For how many consecutive days did someone use Codex, and how many tokens
+      were spent?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 806.56
+        end_s: 843.28
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-phone-remote-pairing
+    text: How do I manage a Claude Code session remotely?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 1316.04
+        end_s: 1351.72
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: harness-subscription-instead-of-api
+    text: Can I use my own Anthropic or Codex subscription for this multi-agent
+      system instead of API credits?
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: HAkSUBdsd6M
+        start_s: 807.72
+        end_s: 842.04
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: opus-sonnet-harness-oneshot
+    text: Did Opus 4.6 fail to handle a programming task that Sonnet 4.6
+      successfully completed within the test set?
+    kind: factual
+    topics:
+      - reliability
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: HAkSUBdsd6M
+        start_s: 986.96
+        end_s: 1022.24
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: mcp-doc-cache-local
+    text: Does this data retrieval system store the collected documents locally to
+      avoid downloading them again?
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - cursor
+      - mcp
+    source: generated
+    gold:
+      - video: KHDMoQ2Sp2s
+        start_s: 747.56
+        end_s: 783.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: mcp-programmatic-tool-calling
+    text: Does writing code to call MCP tools reduce context consumption compared to
+      calling those tools individually?
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: 3wglqgskzjQ
+        start_s: 327.36
+        end_s: 362.76
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-standing-goal-ios-run
+    text: How long did Codex work autonomously to create the iOS app?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 0
+        end_s: 33.2
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: model-choice-frontend-backend
+    text: Which AI model is best suited for writing code?
+    kind: factual
+    topics:
+      - reliability
+    tools: []
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 1167.44
+        end_s: 1202.2
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: cc-default-plan-inference-speed
+    text: Why does the default plan feel slow, and what speeds it up?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 40ikbH0Ba-g
+        start_s: 1227.48
+        end_s: 1265.24
+        note: "Its text was overwritten during a review pass with a question about Codex
+          goals, which belongs to a neighbouring entry — caught by the 0%
+          overlap warning. Rewritten to sit at BM25 rank 4 rather than rank 1:
+          still findable, so it takes part in the comparison, but not handed to
+          every configuration for free."
+  - slug: codex-vs-cc-higher-tier-value
+    text: Is ChatGPT Codex cheaper than Claude Code on higher-tier plans?
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+      - codex
+    source: generated
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 327.44
+        end_s: 364.16
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: shared-local-model-hardware-match
+    text: Which model is best to use with Vercel AI Gateway?
+    kind: factual
+    topics:
+      - migration
+    tools: []
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 1407.72
+        end_s: 1443.92
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: local-agent-app-cost
+    text: Do I need to pay to use Buzz?
+    kind: factual
+    topics:
+      - cost
+    tools: []
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 2577.92
+        end_s: 2612.16
+        note: "Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand. tools
+          is empty on purpose: the claim is about a product outside the four the
+          corpus tracks, so tagging it would corrupt the per-tool cut."
+  - slug: cursor-agent-thinking-context-config
+    text: How to enable extended thinking mode and configure the context size for
+      Sonnet 5 in Cursor?
+    kind: factual
+    topics:
+      - context-window
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: P1KpxzLVg7c
+        start_s: 2667.84
+        end_s: 2702.24
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-goals-enable-command
+    text: How to use the goals in Codex and is it handy?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 267.16
+        end_s: 303.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-overnight-migration-length
+    text: How long does it take the Codex system to perform an automated code
+      migration overnight?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 327.48
+        end_s: 363.32
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-goal-artifacts
+    text: What files does Codex create when configuring a target?
+    kind: factual
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: rIs802-bXDY
+        start_s: 537.44
+        end_s: 573.08
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: skills-open-standard-vs-mcp
+    text: Is Claude's tool-use functionality related to MCP?
+    kind: factual
+    topics:
+      - migration
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: IjiaCOt7bP8
+        start_s: 0
+        end_s: 33.48
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-million-token-availability
+    text: Does Codex support a 1-million-token context window?
+    kind: factual
+    topics:
+      - context-window
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: ypO0q_8zhWw
+        start_s: 1556
+        end_s: 1592.52
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-fast-mode-included
+    text: Is there an additional fee for the Codex fast mode compared to Claude Code?
+    kind: factual
+    topics:
+      - cost
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: ypO0q_8zhWw
+        start_s: 1616.64
+        end_s: 1653.44
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cursor-spacex-pricing-and-data
+    text: What does the involvement of SpaceX and Elon Musk in the Cursor project
+      mean for its future pricing policy, and who will control the data on
+      service usage?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: generated
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 385.28
+        end_s: 423.84
+        note: "David Ondrej (hype): The presenter predicts that Cursor's subscription,
+          backed by SpaceX/Elon Musk's large GPU compute, will soon become
+          heavily subsidized and a great value."
+      - video: jKCjLzjmiaA
+        start_s: 506.88
+        end_s: 544.32
+        note: "Theo - t3.gg (skeptical): Now that Cursor is owned by SpaceX, its
+          valuable usage data is effectively owned by Elon Musk, which could
+          benefit Grok and has precedent in Anthropic cutting off Windsurf-style
+          acquisitions."
+  - slug: agent-lock-in-vs-switching-cost
+    text: Is there a coding agent that offers full control and freedom from vendor
+      lock-in, while eliminating the need to switch between disparate tools like
+      Claude Code and Codex?
+    kind: comparative
+    topics:
+      - migration
+    tools:
+      - claude-code
+      - codex
+    source: generated
+    gold:
+      - video: f8cfH5XX-XU
+        start_s: 2758.16
+        end_s: 2793.52
+        note: "IndyDevDan (practical): PI agent suits users wanting full control over
+          the agent harness and freedom from lock-in, while Claude Code suits
+          users content with its more limited, out-of-the-box feature set."
+      - video: jKCjLzjmiaA
+        start_s: 1468.08
+        end_s: 1503.2
+        note: "Theo - t3.gg (skeptical): Switching between Claude Code and Codex is
+          annoying, and Cursor used to offer a good unified platform with access
+          to many models before circumstances made that harder to maintain."
+  - slug: agent-choice-vs-surrounding-layer
+    text: Does it really matter whether you choose Claude Code or PI as your coding
+      agent, provided you set up the same custom rules, skills, and MCP
+      configuration for it?
+    kind: comparative
+    topics:
+      - migration
+      - mcp-setup
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: ulNsa0sD8N0
+        start_s: 146.8
+        end_s: 183.96
+        note: "Cole Medin (practical): The 'AI layer' built around a coding agent—global
+          rules, skills, MCP servers, code search, and hooks—matters more than
+          which coding agent (Claude Code, Codex, etc.) you choose."
+      - video: f8cfH5XX-XU
+        start_s: 2486.24
+        end_s: 2522.68
+        note: "IndyDevDan (practical): Claude Code has minimal built-in customization
+          (requiring a skill or MCP for things PI supports natively, like custom
+          key bindings), whereas PI offers far more customization options."
+  - slug: codex-chatgpt-subscription-login
+    text: Can I use my ChatGPT subscription to log in to Codex instead of creating a
+      new account?
+    kind: factual
+    topics:
+      - cost
+      - migration
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: EHlqRx0r4BI
+        start_s: 508.64
+        end_s: 544.52
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-phone-controls-computer
+    text: Can Codex remotely control my computer from my phone?
+    kind: factual
+    topics:
+      - autonomy
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 446.32
+        end_s: 482.32
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: codex-notion-plugin-browser
+    text: Can Codex open a Notion document in its own browser?
+    kind: factual
+    topics:
+      - mcp-setup
+    tools:
+      - codex
+    source: generated
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 499.36
+        end_s: 544.88
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: skills-versus-mcp-context-loading
+    text: How are skills different from MCP servers or global rules for giving an
+      agent context?
+    kind: factual
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: generated
+    gold:
+      - video: -iTNOaCmLcw
+        start_s: 57.6
+        end_s: 93.12
+        note: Drafted by a model from a one-line neutral statement of the claim, never
+          from the passage; answer confirmed present in the span by hand.
+  - slug: cc-subagent-parallel-ui-variants
+    text: How do people run several sub-agents in parallel instead of one at a time?
+    kind: comparative
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - claude-code
+    source: generated
+    gold:
+      - video: 7B2HJr0Y68g
+        start_s: 0.32
+        end_s: 36.32
+        note: "IndyDevDan: Claude Code sub-agents can be chained into specialized
+          workflows, such as a 'meta agent' that builds other agents
+          automatically."
+      - video: YJ3Z9XhlF5w
+        start_s: 0.88
+        end_s: 34.16
+        note: "AI Jason: By using hidden Claude Code features like parallel task
+          commands and a new SDK, the speaker turned Claude Code into a 'cloud
+          designer' that spins up multiple sub-agents to generate several UI
+          variations at once."
+
+  # ── contradictions, batch 2 ─────────────────────────────────────────────────
+  # Found with `pnpm clashes --sides any` after matching by vocabulary produced
+  # 0 disagreements from 32 pairs. Both of these are between authors on the same
+  # side of the corpus's stance axis, which is why splitting passages by channel
+  # stance could not have found either: hype channels mention MCP twice across
+  # 26 videos while practical channels mention it 64 times across 34.
+
+  - slug: mcp-tool-context-always-loaded
+    text: If I connect a server full of tools, does the model have to carry every
+      one of their descriptions whether it uses them or not?
+    kind: contradiction
+    topics:
+      - context-window
+      - mcp-setup
+    tools:
+      - mcp
+    source: hand
+    gold:
+      - video: -iTNOaCmLcw
+        start_s: 41.6
+        end_s: 93.12
+        side: pro
+        note: >
+          Cole Medin, arguing for skills over MCP: an MCP server is "where you're
+          just dumping a bunch of context into the LLM right away and completely
+          overwhelming it".
+      - video: 3wglqgskzjQ
+        start_s: 670.12
+        end_s: 722.64
+        side: contra
+        note: >
+          AI Jason: "For the MCP server, it's actually very flexible... if you
+          set deferred loading to be true, that means all the tools from this
+          MCP server default won't be visible", with per-tool overrides.
+      # The two sides share almost no vocabulary — one talks about skills and
+      # progressive disclosure, the other about tool search and deferred
+      # loading — which is exactly the case a similarity-matched pairing cannot
+      # produce and the reason this question is worth having.
+
+  - slug: cursor-third-party-model-access
+    text: Am I stuck with whatever models Cursor ships, or can I point it at another
+      provider I already pay for?
+    kind: contradiction
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 0.08
+        end_s: 47.28
+        side: pro
+        note: >
+          David Ondrej, on why he uses a separate interface: "The problem with
+          apps like codex or cursor is that they only allow their own models,
+          their own subscription."
+      # The first contra span here was Theo at 1346, about the subsidy ending —
+      # a partial conflict, since both sides could hold at different dates.
+      # Widening the window to 90s and dropping the topic filter surfaced two
+      # flat ones instead, so the weaker span was replaced rather than kept.
+      - video: P1KpxzLVg7c
+        start_s: 2606.16
+        end_s: 2702.24
+        side: contra
+        note: >
+          Riley Brown, demonstrating it in the present tense: a Cursor agent
+          "allows you to create use of like from a very long list of models",
+          then picking Sonnet 5 with a 300K context.
+      - video: jKCjLzjmiaA
+        start_s: 1436.08
+        end_s: 1531.44
+        side: contra
+        note: >
+          Theo: Cursor "was an awesome option because their harness was good,
+          their app was good enough... and you got access to every model for a
+          reasonable price".
+
+  - slug: computer-use-leader-dispute
+    text: Whose model is currently ahead at driving a computer directly, clicking and
+      typing rather than editing files?
+    kind: contradiction
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 0.24
+        end_s: 93.2
+        side: pro
+        note: >
+          Riley Brown reading the Opus 4.8 model card: not as good as GPT 5.5 at
+          terminal coding, "but it's better than all of the other models... at
+          reasoning, controlling your computer, doing knowledge work". Reported
+          from the card rather than measured by him, and the same video goes on
+          to say he could not tell 4.8 from 4.7 — the span is pinned to the
+          capability claim, as agent-autonomy-dispute does for the same reason.
+      - video: XFWpf0wLbh0
+        start_s: 716.24
+        end_s: 813.84
+        side: contra
+        note: >
+          Theo on Astra: "if you care a lot about computer use, there is nothing
+          even close... it makes anthropic models almost feel like they're in
+          the stone age", with OSWorld scores "better than anything, including
+          the best from Anthropic".

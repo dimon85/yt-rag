@@ -10,7 +10,7 @@ const corpus: CorpusFacts = {
 
 const q = (over: Partial<Question>): Question => ({
   slug: "s", text: "a question long enough to pass", kind: "factual",
-  topics: [], tools: [], gold: [], ...over,
+  topics: [], tools: [], source: "hand", gold: [], ...over,
 });
 const set = (...questions: Question[]): GoldenSet => ({ version: 1, questions });
 const span = (video: string, start_s = 10, end_s = 40, side?: "pro" | "contra") =>

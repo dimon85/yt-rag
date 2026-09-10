@@ -116,3 +116,41 @@ export function falsePositiveRate(topScores: number[], threshold: number): numbe
   if (topScores.length === 0) return null;
   return topScores.filter((s) => s >= threshold).length / topScores.length;
 }
+
+/**
+ * Whether term matching alone finds this question's answer.
+ *
+ * True when a lexical retriever puts a gold span first. Such a question is not
+ * bad — it is a perfectly ordinary thing to ask.
+ *
+ * It is also NOT true that every configuration gets it, which is what this
+ * function was originally documented and weighted on. Measured on 15 such
+ * questions at 128-token chunks, recall@5 was 91.3% for BM25, 74.7% for
+ * hosted embeddings and 36.0% for the local model — a spread of 55 pp. On the
+ * other 34 questions the spread was 17 pp. So these questions separate
+ * configurations more than three times better than the rest of the set, and
+ * treating them as dead weight had it backwards.
+ *
+ * What the flag is good for is the split in the report: "how much better is
+ * retrieval than grep" is only a question about the half where grep works,
+ * and averaging the two halves hides both answers.
+ *
+ * This replaced a threshold on question/passage word overlap, which was a proxy
+ * and a poor one: overlap is a fraction of the *question's* words, so a
+ * four-word question with all four in the passage scores 100% for being short.
+ *
+ * Used to split the report, never to select questions. Selecting on a
+ * retriever's output tunes the set to that retriever; labelling for the report
+ * discards nothing and answers the question worth asking — how much better is
+ * retrieval than grep, on the questions where grep does not work.
+ */
+export function lexicallyTrivial(
+  golds: Gold[],
+  lexicalRanked: Retrieved[],
+  threshold = HIT_COVERAGE,
+): boolean | null {
+  if (golds.length === 0) return null;
+  const first = lexicalRanked[0];
+  if (!first) return false;
+  return golds.some((g) => covers(g, first, threshold));
+}

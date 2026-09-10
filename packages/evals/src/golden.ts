@@ -36,6 +36,17 @@ export const Question = z.object({
   kind: Kind,
   topics: z.array(z.string()).default([]),
   tools: z.array(z.string()).default([]),
+  /**
+   * Who wrote the wording. `generated` means a model drafted it from a neutral
+   * one-line statement of the claim, never from the passage itself, and a
+   * person then confirmed the answer is in the span.
+   *
+   * Recorded because the difference is measurable and worth measuring: if
+   * generated questions score systematically higher, the set is easier than it
+   * looks and the report should say so. Without the label that comparison is
+   * impossible after the fact.
+   */
+  source: z.enum(["hand", "generated"]).default("hand"),
   gold: z.array(Gold).default([]),
 });
 export type Question = z.infer<typeof Question>;
@@ -67,6 +78,8 @@ export function goldenSha(set: GoldenSet): string {
       slug: q.slug,
       text: q.text.trim().replace(/\s+/g, " "),
       kind: q.kind,
+      // `source` is deliberately absent: who typed the words does not change
+      // what is being measured, and relabelling one should not invalidate a run.
       gold: [...q.gold]
         .map((g) => ({
           video: g.video,
@@ -165,13 +178,39 @@ export function validateStructure(set: GoldenSet, corpus: CorpusFacts): Issue[] 
   return issues;
 }
 
-/** The design the power calculation assumes. */
+/**
+ * The design the power calculation assumes.
+ *
+ * 76 of these carry `recall@k` — factual, comparative and contradiction. That
+ * is the number the 10.5 pp detectable difference comes from, and negatives do
+ * not change it however many there are.
+ *
+ * Negatives are 30 rather than the 14 a proportional split would give. The
+ * proportions were scaled from an earlier 40-question design, which is
+ * inherited arithmetic rather than a decision: the four kinds differ in what
+ * they cost and in what they buy. Negatives are the cheapest question in the
+ * set — no transcript to read, no span to pin down, `gold: []` — and they are
+ * the sole input to false-positive rate, one of the two metrics this project
+ * is built around.
+ *
+ * At 14, a perfect result reads as "somewhere between 0% and 23%". At 30 it
+ * reads as "0% to 12%". The extra hour of writing halves the interval on a
+ * headline number.
+ */
 export const TARGET: Record<Kind, number> = {
   factual: 36,
   comparative: 22,
   contradiction: 18,
-  negative: 14,
+  negative: 30,
 };
+
+/**
+ * The kinds that carry `recall@k`, and so the denominator the power
+ * calculation is about. Derived from TARGET rather than written out, because
+ * the two numbers have to move together: a report that prints a live numerator
+ * against a stale 76 is wrong in the direction that looks fine.
+ */
+export const RECALL_POOL_TARGET = TARGET.factual + TARGET.comparative + TARGET.contradiction;
 
 export function countByKind(set: GoldenSet): Record<Kind, number> {
   const out: Record<Kind, number> = { factual: 0, comparative: 0, contradiction: 0, negative: 0 };
@@ -222,24 +261,52 @@ function contentWords(text: string): Set<string> {
   );
 }
 
-/** Above this, the question is mostly the passage restated. */
+/**
+ * Overlap is no longer a filter, and this constant is kept only so the number
+ * can be printed alongside a question rather than acted on.
+ *
+ * It was a proxy for the thing actually worth knowing — whether a question can
+ * be found by term matching alone — and it was a bad one, because it is a
+ * fraction of the *question's* words. A four-word question with all four words
+ * in the passage scores 100%: "can i control claude code from my phone" is
+ * exactly what a person types into a search box, and rejecting it for being
+ * short would have been a defect in the measure, not the question.
+ *
+ * The thing itself is measurable directly. `lexicallyTrivial` in metrics.ts
+ * asks whether BM25 puts the gold span first, and results are reported split
+ * by that. Which turns a filter into a cut: how much better is retrieval than
+ * grep, on the questions where grep does not work.
+ *
+ * Using a retriever to *select* questions would tune the set to the retriever,
+ * which invariant 11 forbids. Using one to *label* questions for the report
+ * discards nothing and is the point.
+ */
 export const OVERLAP_WARN = 0.75;
 
 /**
  * Below this, the question and its own answer share almost no content words.
  *
- * Set deliberately low, and not at the number the data suggests. A pilot run
- * put mean recall@5 at 0.28 for questions under 30% overlap against 0.79 above
- * it — but that was measured with BM25, which *is* term matching, so the
- * relationship is partly tautological, and choosing a threshold from a
- * retriever's output is tuning the question set to the retriever, which
- * invariant 11 forbids.
+ * The number is deliberately low, and deliberately not the one the data
+ * suggests. A pilot run put mean recall@5 at 0.28 for questions under 30%
+ * overlap against 0.79 above it — but that was measured with BM25, which *is*
+ * term matching, so the relationship is partly tautological, and choosing a
+ * threshold from a retriever's output tunes the question set to the retriever.
  *
- * What stands on its own is the weaker claim: a question sharing under 15% of
- * its content words with the passage it points at may be unanswerable by any
- * system, and that is a property of the question. Worth a reread, not a
- * rejection — a question can legitimately be phrased in entirely different
- * words and still be findable by meaning. That is exactly what the vector
- * configurations are there to test.
+ * What the number cannot tell you is which of two very different things it has
+ * found, and this matters more than the threshold:
+ *
+ *   1. A question the corpus does not answer. The annotation is wrong.
+ *   2. A perfectly good question phrased in entirely different words from the
+ *      passage that answers it.
+ *
+ * The second is not a defect. It is the most valuable question type in the set,
+ * because it is the only kind that separates lexical retrieval from semantic
+ * retrieval — and separating those is the point of the ablation. One question
+ * here sits at 10% overlap, is never found by BM25 at any chunk size, and is
+ * found by local embeddings at 128 tokens. Raising its overlap would delete
+ * exactly the signal it carries, and it was briefly raised by mistake.
+ *
+ * So this is a prompt to check that the answer really is in the span, not a
+ * prompt to rewrite. Only case 1 should ever be edited.
  */
 export const OVERLAP_FLOOR = 0.15;

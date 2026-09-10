@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { dedupeOverlapping, score, windows, type Scored, type Window } from "../src/candidates.ts";
+import {
+  AD_PATTERN, clashes, dedupeOverlapping, score, stratify, tile, windows,
+  type Scored, type Window,
+} from "../src/candidates.ts";
 import type { Segment } from "../src/text.ts";
 
 const seg = (text: string, start_s: number, end_s: number): Segment => ({ text, start_s, end_s });
@@ -89,5 +92,91 @@ describe("dedupeOverlapping", () => {
   test("returns results best first", () => {
     expect(dedupeOverlapping([at(0, 10, 1), at(100, 110, 8), at(200, 210, 4)])
       .map((s) => s.score.total)).toEqual([8, 4, 1]);
+  });
+});
+
+describe("tile", () => {
+  const segs = Array.from({ length: 20 }, (_, i) => seg(`s${i}`, i * 5, i * 5 + 5));
+
+  test("windows do not overlap", () => {
+    const ts = tile(segs, 30);
+    for (let i = 1; i < ts.length; i++) {
+      expect(ts[i]!.start_s).toBeGreaterThanOrEqual(ts[i - 1]!.end_s - 5);
+    }
+  });
+
+  test("covers the transcript end to end", () => {
+    const ts = tile(segs, 30);
+    expect(ts[0]!.start_s).toBe(0);
+    expect(ts.at(-1)!.end_s).toBe(100);
+  });
+
+  test("an empty transcript yields nothing", () => {
+    expect(tile([])).toEqual([]);
+  });
+});
+
+describe("stratify", () => {
+  const rows = Array.from({ length: 40 }, (_, i) => ({
+    id: i,
+    score: { total: 40 - i, reasons: [], tools: [], topics: [] },
+  }));
+
+  test("returns everything when there is nothing to choose between", () => {
+    expect(stratify(rows.slice(0, 5), 10)).toHaveLength(5);
+  });
+
+  test("does not simply take the top n", () => {
+    // The point: the top n are the densest passages, which are the most
+    // findable, and a set of those measures the selection rather than the
+    // retriever.
+    expect(stratify(rows, 8).map((r) => r.id)).not.toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  test("reaches into the weakest band", () => {
+    expect(Math.max(...stratify(rows, 8).map((r) => r.id))).toBeGreaterThan(rows.length * 0.6);
+  });
+
+  test("returns at most n", () => {
+    expect(stratify(rows, 8).length).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("AD_PATTERN", () => {
+  test("catches the phrasings that actually appear", () => {
+    // The one that reached a generated batch said neither "sponsor" nor "ad".
+    for (const t of [
+      "get started with SERP API using 250 free credits",
+      "clicking the link in the description",
+      "just scan the QR code that you see on the screen",
+      "here's a word from our sponsor",
+    ]) {
+      expect(AD_PATTERN.test(t)).toBe(true);
+    }
+  });
+
+  test("leaves ordinary claims alone", () => {
+    for (const t of [
+      "the rate limit was doubled for paid plans",
+      "it ran for six hours building an iOS app",
+    ]) {
+      expect(AD_PATTERN.test(t)).toBe(false);
+    }
+  });
+});
+
+describe("clashes", () => {
+  test("adjacent tiles can still overlap, because captions do", () => {
+    // Two picks eight seconds apart produced near-duplicate questions in the
+    // first generated batch.
+    expect(clashes({ start_s: 1316, end_s: 1351 }, [{ start_s: 1287, end_s: 1324 }])).toBe(true);
+  });
+
+  test("touching at a point is not a clash", () => {
+    expect(clashes({ start_s: 30, end_s: 60 }, [{ start_s: 0, end_s: 30 }])).toBe(false);
+  });
+
+  test("nothing taken means no clash", () => {
+    expect(clashes({ start_s: 0, end_s: 30 }, [])).toBe(false);
   });
 });

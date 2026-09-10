@@ -10,7 +10,7 @@ import { CACHE_DIR, loadCorpus } from "../../ingest/src/corpus.ts";
 import type { Segment } from "../../ingest/src/text.ts";
 import {
   countByKind, goldenSha, lexicalOverlap, loadGolden, OVERLAP_FLOOR, OVERLAP_WARN,
-  TARGET, validateStructure, type Issue, type Kind,
+  RECALL_POOL_TARGET, TARGET, validateStructure, type Issue, type Kind,
 } from "./golden.ts";
 
 const corpus = loadCorpus();
@@ -50,23 +50,17 @@ for (const q of set.questions) {
       slug: q.slug,
       message:
         `only ${Math.round(Math.max(...overlaps) * 100)}% of the question's words appear in ` +
-        `any span it points at — check it is answerable at all, not just hard`,
+        `any span it points at. Check the answer really is in the span. If it is, ` +
+        `keep the question — a pure paraphrase is the only kind that separates lexical ` +
+        `from semantic retrieval, and raising its overlap deletes that signal`,
     });
   }
 
-  for (const g of q.gold) {
-    if (!durations.has(g.video)) continue;
-    const overlap = lexicalOverlap(q.text, spanText(g.video, g.start_s, g.end_s));
-    if (overlap > OVERLAP_WARN) {
-      issues.push({
-        level: "warning",
-        slug: q.slug,
-        message:
-          `${Math.round(overlap * 100)}% of the question's words appear in the span it points at ` +
-          `— term matching alone will find it, so it cannot separate one retriever from another`,
-      });
-    }
-  }
+  // No upper warning. Overlap is a fraction of the question's words, so a short
+  // natural question scores high for being short — and short natural questions
+  // are what people type. Whether term matching alone finds a question is
+  // measured directly instead, and reported as a cut rather than used as a
+  // filter. See OVERLAP_WARN in golden.ts.
 }
 
 // ─── report ──────────────────────────────────────────────────────────────────
@@ -86,7 +80,7 @@ for (const k of Object.keys(TARGET) as Kind[]) {
   );
 }
 console.log(
-  `\nrecall pool: ${pool} of 76 — negatives carry no gold spans, so they do not ` +
+  `\nrecall pool: ${pool} of ${RECALL_POOL_TARGET} — negatives carry no gold spans, so they do not ` +
   `contribute to recall@k or to what the set can detect`,
 );
 

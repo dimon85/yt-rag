@@ -5,14 +5,17 @@ packages:
 # fresh clone installs without a prompt.
 #
 #   esbuild           pulled in by vitest
-#   onnxruntime-node  fetches its native binary; transformers.js runs the
-#                     embedding model locally through it
+#   onnxruntime-node  fetches its native binary; transformers.js runs the local
+#                     embedding model through it
 #   protobufjs        onnxruntime dependency
-#   sharp             pulled in for image models this project never touches,
-#                     but refusing its build fails the install rather than
-#                     skipping it
+#   sharp             pulled in for image models this project never touches, but
+#                     refusing its build fails the install rather than skipping it
+#   @google/genai     the hosted embedding client
+#   ws                websocket transport it depends on
 allowBuilds:
+  '@google/genai': true
   esbuild: true
   onnxruntime-node: true
   protobufjs: true
   sharp: true
+  ws: true

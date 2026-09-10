@@ -8,6 +8,7 @@
     "grep": "node --experimental-strip-types src/search.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "gpt-tokenizer": "^4.0.0",
     "yaml": "^2.6.0",
     "youtube-transcript-plus": "^2.0.1",
