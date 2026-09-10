@@ -13,7 +13,7 @@ import { parseArgs } from "node:util";
 import { parse as parseYaml } from "yaml";
 import { GoogleGenAI } from "@google/genai";
 import {
-  type Annotated, ClashSchema, COMPLEMENT_PROMPT, ComplementSchema, duplicateOf,
+  type Annotated, ClashSchema, COMPLEMENT_PROMPT, ComplementSchema, duplicateOf, touchesGold,
   type Passage, POOLED_PROMPT, PROMPT, renderDated, renderPassages, REVISION_PROMPT,
   RevisionSchema, verify, verifyComplements, verifyRevisions,
 } from "./clash.ts";
@@ -36,6 +36,9 @@ usage: pnpm pairs --tool ID [--relation R] [--topic ID] [--sides S] [--contra S]
                 own earlier video, which corpus.yaml names as the second source
                 of contradictions and nothing was mining; it needs --channel.
   --channel N   restrict to one channel, exactly as named in corpus.yaml
+  --fresh       skip passages an existing question already points at. Worth it
+                once the set is large: of seven candidates in one batch, six
+                landed on ground already covered
   --tool ID     tool the pair must be about. Required unless --channel or
                 --topic narrows the search instead
   --topic ID    restrict to passages matching the topic's spoken keywords
@@ -68,6 +71,7 @@ const { values } = (() => {
         topic: { type: "string" },
         relation: { type: "string", default: "clash" },
         channel: { type: "string" },
+        fresh: { type: "boolean", default: false },
         sides: { type: "string", default: "stance" },
         contra: { type: "string", default: "skeptical" },
         width: { type: "string", default: "45" },
@@ -81,6 +85,13 @@ const { values } = (() => {
     usage((e as Error).message);
   }
 })();
+
+// What the set already covers. Read straight from the YAML rather than through
+// the golden loader: that lives in packages/evals, which already imports from
+// here, and only the slug and the spans are needed.
+const annotated: Annotated[] = (
+  parseYaml(readFileSync(join(ROOT, "golden", "questions.yaml"), "utf8")).questions ?? []
+).map((q: any) => ({ slug: q.slug, gold: q.gold ?? [] }));
 
 const cfg = loadCorpus();
 const stanceOf = new Map<string, Stance>(cfg.channels.map((c) => [c.name, c.stance]));
@@ -148,6 +159,7 @@ function passagesFor(tool: string | undefined, topic?: string): { pro: Sourced[]
     for (const w of tile(segments, widthS)) {
       const normalized = normalizeTranscript(w.segments);
       if (toolDef && !toolDef.aliases.some((a) => hasPhrase(normalized, a))) continue;
+      if (values.fresh && touchesGold({ ...w, video: v.youtube_id } as any, annotated)) continue;
       if (topicDef && !topicDef.keywords.some((k) => hasPhrase(normalized, k))) continue;
       side.push({
         id: `${side === pro ? "p" : "c"}${side.length + 1}`,
@@ -232,7 +244,7 @@ const contra = rank(all.contra).slice(0, perSide);
 
 console.log(
   `${values.tool ?? "all tools"}${values.topic ? ` / ${values.topic}` : ""}` +
-  `${values.channel ? ` / ${values.channel}` : ""}: ` +
+  `${values.channel ? ` / ${values.channel}` : ""}${values.fresh ? " (fresh only)" : ""}: ` +
   (pooled
     ? `${pro.length} passages of ${all.pro.length}, pooled`
     : `${pro.length} pro of ${all.pro.length}, ${contra.length} contra of ${all.contra.length}`),
@@ -369,14 +381,6 @@ if (!parsed.success) {
 }
 
 const offered = [...pro, ...contra];
-
-// What the set already covers. Read straight from the YAML rather than through
-// the golden loader: that lives in packages/evals, which already imports from
-// here, and only the slug and the spans are needed.
-const annotated: Annotated[] = (
-  parseYaml(readFileSync(join(ROOT, "golden", "questions.yaml"), "utf8")).questions ?? []
-).map((q: any) => ({ slug: q.slug, gold: q.gold ?? [] }));
-
 const dupe = (a: Passage, b: Passage) => duplicateOf(a, b, annotated);
 const where = (p: Passage) =>
   `${p.channel} — youtu.be/${p.video}?t=${Math.floor(p.start_s)}` +

@@ -248,10 +248,20 @@ export function verify(
  *
  * It is the same machinery as the clash search and a different relation, which
  * is why it lives here. It is also the cheaper half of the shortfall: the set
- * is 14 comparative questions short and 13 contradictions short, and a
+ * was 14 comparative questions short and 13 contradictions short, and a
  * disagreement needs two authors to conflict while this needs only two authors
  * to cover different parts of one thing. The corpus has the second in
  * quantity and, measurably, not much of the first.
+ *
+ * One thing this needs that the question kind does not: two AUTHORS. A
+ * `comparative` question only requires two videos, so a search inside one
+ * channel should work in principle. Run across the six channels with the most
+ * material — 61 to 183 passages each — it returned nothing at all, six times.
+ * An author covering a subject twice restates it or covers it in full, and the
+ * "neither half suffices" test fails. Two people bring genuinely different
+ * halves. So `complement` is cross-author in practice while `revision` is
+ * within-author by definition, and the pairing that looks most flexible on
+ * paper is the one with the narrower source.
  */
 export const ComplementSchema = z.object({
   pairs: z.array(z.object({
@@ -335,6 +345,20 @@ const overlaps = (
   a: { video: string; start_s: number; end_s: number },
   b: { video: string; start_s: number; end_s: number },
 ) => a.video === b.video && a.end_s > b.start_s && b.end_s > a.start_s;
+
+/**
+ * Whether any existing question already points at this passage.
+ *
+ * The reason it exists: by the hundredth question, new candidates kept landing
+ * on ground the set already covers. Of seven from one batch of searches, six
+ * overlapped an existing question and five of those on the same subject — not
+ * because the searches were bad but because the corpus's dense, claim-bearing
+ * stretches are now mostly annotated. Skipping them points the search at what
+ * is left, which is the only place a new question can come from.
+ */
+export function touchesGold(p: Passage, questions: Annotated[]): boolean {
+  return questions.some((q) => q.gold.some((g) => overlaps(g, p)));
+}
 
 /**
  * The slug of an existing question this pair would duplicate, or null.

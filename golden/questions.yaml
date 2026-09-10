@@ -1,4 +1,4 @@
-# Version 20: 102 questions (5 contradictions, every one of them cross-author)
+# Version 22: 104 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 20
+version: 22
 
 questions:
   - slug: cc-session-cap-tiers
@@ -1880,3 +1880,60 @@ questions:
           to read .env or run a recursive force delete, and one that blocks an
           edit to a file coupled to files the agent has not read. Rules are not
           guarantees; hooks are.
+
+  - slug: scaling-agents-bottleneck
+    text: What actually stops you running a lot of agents at once?
+    kind: comparative
+    topics:
+      - autonomy
+      - context-window
+    tools:
+      - claude-code
+      - cursor
+    source: hand
+    gold:
+      - video: c9nRxEy1kUY
+        start_s: 446.32
+        end_s: 542.24
+        note: >
+          David Ondrej on the machine: "You cannot run hundreds of agents at
+          once because your computer will probably not handle it. All it takes
+          is a couple of agents to decide to run database tests at the same
+          time" — plus lost sessions when the laptop closes.
+      - video: ulNsa0sD8N0
+        start_s: 716.72
+        end_s: 812.32
+        note: >
+          Cole Medin on the model, a limit no amount of hardware moves: "if you
+          send too much into the LLM at once, it is going to fall flat on its
+          face", which is why the work is split across orchestrated sessions
+          rather than handed to one.
+
+  - slug: third-party-margin-forces
+    text: Is it getting easier or harder to sell a product built on somebody else's
+      models?
+    kind: comparative
+    topics:
+      - cost
+      - migration
+    tools:
+      - cursor
+    source: hand
+    gold:
+      - video: N80TzPCHbNg
+        start_s: 1017.84
+        end_s: 1083.92
+        note: >
+          Matthew Berman on the force that helps: more competition among model
+          providers means "when developers and startups have more cheaper AI to
+          use, of course, their margins go up", while the closed model layer is
+          the one being squeezed.
+      - video: jKCjLzjmiaA
+        start_s: 1318.32
+        end_s: 1383.92
+        note: >
+          Theo on the force that hurts, from inside a product that lost to it:
+          "we can't provide the same level of subsidization that the labs do...
+          A prompt on T3 chat might cost us $2 and the same prompt on chat GPT
+          costs them 20. How do we win there? We can't." The same 70-90% margins
+          the other span calls a weakness are what pay for the subsidy.
