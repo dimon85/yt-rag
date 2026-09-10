@@ -330,9 +330,18 @@ for (const r of retrievers) {
   const measurable = results
     .map(({ q, ranked }) => contradictionCoverage(q.gold, ranked, 5))
     .filter((x) => x !== null).length;
+  // The caveat is tied to the target from the power calculation, not to a
+  // round number. It used to lift at 5, which is where the figure stops being
+  // absurd and starts being merely unusable: 2 of 5 against 0 of 5 is one
+  // question either way. Silence from the tool at that point reads as
+  // permission to compare, so it stays until the set can actually support one.
+  const CONTRADICTION_TARGET = 18;
   console.log(
     `  contradiction coverage — @5 ${cov(5)}, @10 ${cov(10)}` +
-    (measurable < 5 ? "  (too few to compare configurations — descriptive only)" : ""),
+    (measurable < CONTRADICTION_TARGET
+      ? `  (${measurable} of ${CONTRADICTION_TARGET} written — descriptive only, ` +
+        `a difference here is one or two questions)`
+      : ""),
   );
 
   // Thresholds come from this retriever's own score distribution, not from a

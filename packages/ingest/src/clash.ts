@@ -87,7 +87,12 @@ strictly practical.
 
 Find pairs where the two passages make claims that CANNOT BOTH BE TRUE about
 the same specific thing — a limit, a price, a capability, a behaviour, a
-recommendation. Report at most the clearest ones.
+recommendation.
+
+Report EVERY pair that qualifies, not only the clearest one. Different pairs
+may dispute different claims, and the same passage may appear in more than one
+pair. Work through the passages systematically rather than stopping at the
+first conflict you find.
 
 ${RULES}
 `.trim();
@@ -109,6 +114,11 @@ tools, by different authors.
 Find pairs of passages that make claims which CANNOT BOTH BE TRUE about the
 same specific thing — a limit, a price, a capability, a behaviour, a
 recommendation. The two passages must be by different authors.
+
+Report EVERY pair that qualifies, not only the clearest one. Different pairs
+may dispute different claims, and the same passage may appear in more than one
+pair. Work through the passages systematically rather than stopping at the
+first conflict you find.
 
 ${RULES}
 `.trim();

@@ -1,4 +1,4 @@
-# Version 10: 80 questions (4 contradictions, two of them cross-author by construction)
+# Version 11: 81 questions (5 contradictions, every one of them cross-author)
 # The golden set. Frozen once written: it is the instrument, not a result.
 #
 # Rules that matter more than they look (docs/spec.md, "Golden set"):
@@ -24,7 +24,7 @@
 #                  Prefer two authors, and say in the note when you could not.
 #   negative       no gold spans at all; the answer is not in the corpus
 #
-version: 10
+version: 11
 
 questions:
   - slug: cc-session-cap-tiers
@@ -248,6 +248,27 @@ questions:
         side: pro
         note: Reports later permission for CLI-style usage, qualified by the production
           API recommendation; not unlimited third-party permission.
+      # Both spans above and below are 8IDzBRRFnQU reporting a timeline of other
+      # people's statements — the video quotes the permission and the ban alike.
+      # That made the contra label fragile: retrieval could return it and a
+      # reader would not know which side it argued. These two are the same
+      # claim asserted by the authors themselves, which is what the side label
+      # is supposed to mean.
+      - video: f8cfH5XX-XU
+        start_s: 1617.12
+        end_s: 1712.56
+        side: contra
+        note: >
+          IndyDevDan in his own voice: "they're really locking down the usage of
+          their plan. You can really only use their plan on cloud code or the
+          API keys... They finally shut it down."
+      - video: Q7n0PGbMW_U
+        start_s: 807.16
+        end_s: 902.24
+        side: contra
+        note: >
+          Theo: "how strict Anthropic is about how you can use your sub, banning
+          people for even having Open Claude mentioned in their commit history".
       - video: 8IDzBRRFnQU
         start_s: 474.84
         end_s: 494.56
@@ -1173,13 +1194,56 @@ questions:
           David Ondrej, on why he uses a separate interface: "The problem with
           apps like codex or cursor is that they only allow their own models,
           their own subscription."
-      - video: jKCjLzjmiaA
-        start_s: 1346.0
-        end_s: 1397.6
+      # The first contra span here was Theo at 1346, about the subsidy ending —
+      # a partial conflict, since both sides could hold at different dates.
+      # Widening the window to 90s and dropping the topic filter surfaced two
+      # flat ones instead, so the weaker span was replaced rather than kept.
+      - video: P1KpxzLVg7c
+        start_s: 2606.16
+        end_s: 2702.24
         side: contra
         note: >
-          Theo, describing frontier models reached through Cursor and the
-          subsidy ending: "while cursor has been able to float this for a
-          while... now they're being forced to stop". Read as a partial
-          conflict, not a flat one — both can hold at different dates, and the
-          question is answerable well only by returning both.
+          Riley Brown, demonstrating it in the present tense: a Cursor agent
+          "allows you to create use of like from a very long list of models",
+          then picking Sonnet 5 with a 300K context.
+      - video: jKCjLzjmiaA
+        start_s: 1436.08
+        end_s: 1531.44
+        side: contra
+        note: >
+          Theo: Cursor "was an awesome option because their harness was good,
+          their app was good enough... and you got access to every model for a
+          reasonable price".
+
+  - slug: computer-use-leader-dispute
+    text: Whose model is currently ahead at driving a computer directly, clicking and
+      typing rather than editing files?
+    kind: contradiction
+    topics:
+      - autonomy
+      - reliability
+    tools:
+      - claude-code
+      - codex
+    source: hand
+    gold:
+      - video: 84NkgiTcOdo
+        start_s: 0.24
+        end_s: 93.2
+        side: pro
+        note: >
+          Riley Brown reading the Opus 4.8 model card: not as good as GPT 5.5 at
+          terminal coding, "but it's better than all of the other models... at
+          reasoning, controlling your computer, doing knowledge work". Reported
+          from the card rather than measured by him, and the same video goes on
+          to say he could not tell 4.8 from 4.7 — the span is pinned to the
+          capability claim, as agent-autonomy-dispute does for the same reason.
+      - video: XFWpf0wLbh0
+        start_s: 716.24
+        end_s: 813.84
+        side: contra
+        note: >
+          Theo on Astra: "if you care a lot about computer use, there is nothing
+          even close... it makes anthropic models almost feel like they're in
+          the stone age", with OSWorld scores "better than anything, including
+          the best from Anthropic".
