@@ -22,14 +22,17 @@ Two configurations differing by less than 11 pp are indistinguishable on this
 set, however far apart their percentages look. The design called for a pool of
 76, which would have given 10.5 pp; the set came in at 72.
 
-Best configuration per retriever, out of 42 that ran. Local embeddings
-throughout — see *What did not run*.
+Best configurations out of the 105 cells of one run directory: the 63-cell
+matrix under the local model, and its 42 dense cells again under `baai/bge-m3`
+through OpenRouter. Every figure below comes from that one run.
 
 | configuration | recall@5 | MRR | contradiction coverage | FP@median | p50 | $/1000 queries |
 |---|---|---|---|---|---|---|
-| `fixed-512-ov128__hybrid__none` | **58.4%** | **0.527** | 0/11 | 9.4% | 3.8 ms | $0 |
+| `fixed-512-ov128__hybrid__none` /local | **58.4%** | 0.527 | 0/11 | 9.4% | 4.3 ms | $0 |
+| `fixed-512-ov128__hybrid__none` /bge-m3 | 57.2% | 0.494 | 1/11 | 15.6% | 3.9 ms | $0.0002 |
+| `window-90-ov30__hybrid__none` /bge-m3 | 55.1% | **0.577** | 0/11 | 12.5% | 6.6 ms | $0.0002 |
+| `window-60__vector__none` /bge-m3 | 51.4% | 0.421 | 0/11 | **0.0%** | 5.2 ms | $0.0002 |
 | `fixed-1024-ov256__bm25__none` | 50.6% | 0.447 | 1/11 | 34.4% | 0.3 ms | $0 |
-| `fixed-512-ov128__vector__none` | 45.9% | 0.350 | 1/11 | 3.1% | 3.0 ms | $0 |
 
 `golden_sha 76841db0c595d0d6`, `git_sha d08c97f71b14`. Runs are comparable only
 when both match, and the report refuses to mix them.
@@ -69,6 +72,32 @@ of one question share their topic vocabulary — so it reads them as redundant
 and pulls against the metric it was added to help. It stays in the matrix as a
 row worth having.
 
+**The hosted embedding model wins, and the set can see it.** `baai/bge-m3`
+through OpenRouter beats the local 384-dimension model in 26 of the 28 dense
+configurations. Of the 28 paired comparisons, the set resolves 11 at p <= 0.05
+— **all 11 favouring bge-m3, none favouring local**. The gains concentrate
+where the dense retriever works alone over short chunks:
+`fixed-128__vector__none` goes 29.0% to 48.5%, `window-60__vector__none` 35.4%
+to 51.4%. Hybrid configurations over long chunks are indistinguishable, which
+is what a lexical half doing most of the work looks like.
+
+That closes the embedding axis of the design, and it cost **$0.0355** for the
+whole matrix — 3.2M tokens at $0.01 per million, measured from the vendor's own
+`usage.cost` rather than inferred from a price table. Gemini's free tier could
+not run it at any schedule: the allowance is spent per text against a daily cap
+of roughly a thousand, and this corpus is 3,238 chunks.
+
+Two things the local model had hidden:
+
+- **"Long chunks wash out a dense retriever" was a property of that model.**
+  The local one peaks in the middle of the size range and collapses at 128
+  tokens; bge-m3 is at its best there. A conclusion about chunk size drawn from
+  a 384-dimension MiniLM would have been a conclusion about MiniLM.
+- **bge-m3 abstains perfectly on this corpus.** Every `vector` configuration
+  under it scores 0.0% false positives at its own median threshold — 32
+  unanswerable questions, none answered. Recall rose and the abstention did not
+  pay for it, which is not the usual shape of that trade-off.
+
 **Latency does not discriminate at this scale, and that is the finding.**
 Everything is single-digit milliseconds: the best configuration costs 3.8 ms,
 the cheapest 0.3 ms at 50.6% recall. So no configuration is disqualified on
@@ -77,6 +106,12 @@ informative — dense latency is linear in chunk count (1.5 ms over 534 chunks,
 9.5 ms over 3,238) because the vector search is a full scan with no index, and
 MMR adds a flat ~5.5 ms regardless of corpus size. At a hundred times this
 corpus, that linearity is the first thing that would break.
+
+The embedder is the exception, and it moves latency by an order of magnitude:
+one query embedding through the hosted model is a **33.8 ms** round trip,
+against 0.3–10.2 ms for the retrieval it feeds. So the statement holds among
+retrieval configurations and not between embedders — the local model's recall
+costs less in milliseconds than it looks.
 
 **Retrieval is deterministic.** All three repeats of all 42 cells returned
 identical rankings — 0 disagreements over 3,024 question-cells. That is what
@@ -132,13 +167,15 @@ table.
 | blocked | cells | why |
 |---|---|---|
 | `cohere-rerank` | 21 | `COHERE_API_KEY` was never set. The client is written and tested; with a key each cell needs up to 312 billed calls |
-| Gemini embeddings | 28 under `--embedder gemini` | the free-tier allowance is spent per text against a daily cap of roughly a thousand, and this corpus is 3,238 chunks at 128 tokens |
+| Gemini embeddings | 28 under `--embedder gemini` | the free-tier allowance is spent per text against a daily cap of roughly a thousand, and this corpus is 3,238 chunks at 128 tokens. Run through OpenRouter instead, billed per token — see the embedding comparison above |
 
-So two steps of the plan are **not closed**. There is no reranker-on/off
-comparison, and there is no embedding-model comparison — every number above
-comes from the local model. A skipped cell is recorded in its file as "not run"
-with the reason, never as a zero and never as a blank, because a missing cell
-that looks like a bad result is worse than an empty one.
+So one step of the plan is **not closed**: there is no reranker-on/off
+comparison. The embedding-model comparison, blocked on Gemini's daily cap, ran
+through OpenRouter instead for $0.0355.
+
+A skipped cell is recorded in its file as "not run" with the reason, never as a
+zero and never as a blank, because a missing cell that looks like a bad result
+is worse than an empty one.
 
 ## What makes this different from a RAG tutorial
 
@@ -248,9 +285,15 @@ quietly empty run.
 - **Sample selection.** Twelve channels, chosen by hand for a spread of opinion
   about a handful of AI coding tools — 4 hype, 5 practical, 3 skeptical. That mix
   shapes the contradiction questions.
-- **One embedding model was actually measured.** Every number here is the local
-  model. The hosted comparison the design calls for did not happen, for quota
-  rather than for code reasons.
+- **Two embedding models, and the hosted one is a single vendor.** The
+  comparison is local MiniLM against `baai/bge-m3`; Gemini, which the design
+  named, never ran, because its free tier is capped per day rather than priced
+  per token. "A hosted model beats a small local one here" is what the data
+  supports, not a ranking of hosted models.
+- **The hosted embedder is not reproducible to the bit.** The same text
+  embedded twice returns vectors that differ at 1e-4. Rankings are stable
+  because the disk cache is, so the three repeats verify the cache rather than
+  the vendor.
 - **The reranker comparison did not happen at all.** No local cross-encoder
   exists for TypeScript, so reranking is a single hosted API — and it never ran,
   because no key was set. The only reranking measured is MMR, which is local.
@@ -273,9 +316,9 @@ quietly empty run.
 
 ## Status
 
-The ablation has run: 42 of 63 cells, results above. What remains is the two
-axes that need paid API access, the seven contradiction questions the design
-asked for, and deployment.
+The ablation has run, under two embedding models: 105 cells in one run
+directory, results above. What remains is the reranker axis, which needs a paid
+key, the seven contradiction questions the design asked for, and deployment.
 
 - [docs/spec.md](docs/spec.md) — schema, ablation configurations, metrics, and
   what the runner actually measured
