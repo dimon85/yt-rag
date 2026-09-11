@@ -28,7 +28,8 @@ through OpenRouter. Every figure below comes from that one run.
 
 | configuration | recall@5 | MRR | contradiction coverage | FP@median | p50 | $/1000 queries |
 |---|---|---|---|---|---|---|
-| `fixed-512-ov128__hybrid__none` /local | **58.4%** | 0.527 | 0/11 | 9.4% | 4.3 ms | $0 |
+| `fixed-512-ov128__hybrid__cohere-rerank` /local | **63.2%** | **0.613** | **2/11** | **0.0%** | 717 ms | $0 * |
+| `fixed-512-ov128__hybrid__none` /local | 58.4% | 0.527 | 0/11 | 9.4% | 4.3 ms | $0 |
 | `fixed-512-ov128__hybrid__none` /bge-m3 | 57.2% | 0.494 | 1/11 | 15.6% | 3.9 ms | $0.0002 |
 | `window-90-ov30__hybrid__none` /bge-m3 | 55.1% | **0.577** | 0/11 | 12.5% | 6.6 ms | $0.0002 |
 | `window-60__vector__none` /bge-m3 | 51.4% | 0.421 | 0/11 | **0.0%** | 5.2 ms | $0.0002 |
@@ -71,6 +72,30 @@ diversifies by surface dissimilarity, and two passages arguing opposite sides
 of one question share their topic vocabulary — so it reads them as redundant
 and pulls against the metric it was added to help. It stays in the matrix as a
 row worth having.
+
+**The reranker improves every number, and the set cannot confirm any of
+them.** Cohere Rerank over the best configuration moves recall@1 from 28.1% to
+41.3%, recall@5 to 63.2%, MRR from 0.527 to 0.613, false positives from 9.4% to
+**0.0%**, and contradiction coverage from 0/11 to 2/11 — the only thing in the
+project that has moved that metric off zero on this configuration. It helps most
+where help is needed: +6.7 pp on the questions term matching cannot answer,
+against +1.8 pp on the ones it can.
+
+And not one paired comparison reaches significance. At recall@5, 4 questions
+went to `none` and 5 to the reranker (p = 1.0); at recall@1, 8 against 16
+(p = 0.15); at recall@10, 1 against 4 (p = 0.38). So a 13-point gain at rank 1
+is what this set calls indistinguishable from chance, which is exactly what the
+detectable-difference line above the table exists to say. The honest summary is
+that every point estimate favours reranking and 72 questions cannot establish
+it.
+
+It is also the one configuration where latency matters: **717 ms at p50 and
+1,665 ms at p95**, against 4.3 ms without it. The reranking round trip is
+167 times the retrieval it corrects.
+
+\* It cost no money and is not free: the axis ran on a Cohere trial key, which
+allows 1,000 calls a month at 10 a minute. One cell — 104 questions × 3 repeats
+— is 312 of them.
 
 **The hosted embedding model wins, and the set can see it.** `baai/bge-m3`
 through OpenRouter beats the local 384-dimension model in 26 of the 28 dense
@@ -169,9 +194,11 @@ table.
 | `cohere-rerank` | 21 | `COHERE_API_KEY` was never set. The client is written and tested; with a key each cell needs up to 312 billed calls |
 | Gemini embeddings | 28 under `--embedder gemini` | the free-tier allowance is spent per text against a daily cap of roughly a thousand, and this corpus is 3,238 chunks at 128 tokens. Run through OpenRouter instead, billed per token — see the embedding comparison above |
 
-So one step of the plan is **not closed**: there is no reranker-on/off
-comparison. The embedding-model comparison, blocked on Gemini's daily cap, ran
-through OpenRouter instead for $0.0355.
+Both blocked steps have since run. The embedding-model comparison went
+through OpenRouter for $0.0355; the reranker-on/off comparison ran on a Cohere
+trial key, on the winning configuration, for no money and 312 of a monthly
+allowance of 1,000 calls. The 21 `cohere-rerank` cells of the full matrix remain
+unrun — at 312 calls each, the allowance covers three a month.
 
 A skipped cell is recorded in its file as "not run" with the reason, never as a
 zero and never as a blank, because a missing cell that looks like a bad result
@@ -294,9 +321,11 @@ quietly empty run.
   embedded twice returns vectors that differ at 1e-4. Rankings are stable
   because the disk cache is, so the three repeats verify the cache rather than
   the vendor.
-- **The reranker comparison did not happen at all.** No local cross-encoder
-  exists for TypeScript, so reranking is a single hosted API — and it never ran,
-  because no key was set. The only reranking measured is MMR, which is local.
+- **The reranker was measured on one configuration, not on the matrix.** A
+  trial key allows 1,000 calls a month and one cell costs 312, so the on/off
+  comparison ran on the winner alone. It is also a comparison against **one**
+  reranker: no local cross-encoder exists for TypeScript, so there is nothing
+  to compare Cohere against but MMR, which is a different kind of thing.
 - **Contradiction coverage rests on 11 questions**, against a design of 18. The
   corpus turned out to hold less disagreement than the design assumed. One
   question moves that metric by 9 pp, so it is descriptive only.

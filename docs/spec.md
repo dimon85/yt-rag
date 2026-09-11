@@ -776,6 +776,59 @@ the **vendor** drifts between calls, and a cached repeat would answer that with
 the first repeat's answer. So `rerank` reads the cache and `rerankFresh` does
 not, and repeats past the first always spend.
 
+### The reranker axis, on a trial key
+
+Cohere offers a free trial key: 1,000 API calls a month, 10 a minute. One cell
+is 104 questions times three repeats, so 312 calls — the allowance covers three
+cells a month, which is why the on/off comparison ran on the winning
+configuration alone rather than on all 21 `cohere-rerank` cells.
+
+It improves every point estimate, and the set cannot confirm any of them.
+
+| | r@1 | r@5 | r@10 | MRR | contradiction | FP@median | p50 |
+|---|---|---|---|---|---|---|---|
+| `hybrid__none` | 28.1% | 58.4% | 63.5% | 0.527 | 0/11 | 9.4% | 4.3 ms |
+| `hybrid__cohere-rerank` | 41.3% | 63.2% | 72.5% | 0.613 | 2/11 | 0.0% | 717 ms |
+
+Not one paired comparison reaches significance: 4 against 5 at recall@5
+(p = 1.0), 8 against 16 at recall@1 (p = 0.15), 1 against 4 at recall@10
+(p = 0.38). A 13-point gain at rank 1 is what 72 questions call chance. Both
+halves of that belong in the README, because the table alone would mislead and
+the p-value alone would bury a result that every estimate supports.
+
+The reranking round trip is **717 ms at p50 and 1,665 ms at p95**, against
+4.3 ms for the retrieval it corrects. The spec predicted "p95 latency gains an
+API round-trip"; it gains two orders of magnitude of one.
+
+Three defects in the instrument surfaced only because a hosted service was
+finally in the loop, and each one had produced a plausible wrong number first.
+
+**A rate limit read as an exhausted allowance.** `classifyError` decided between
+"wait" and "give up" by looking for `trial|monthly|billing|upgrade|quota` in the
+body. Cohere's per-minute message is *"You are using a Trial key, which is
+limited to 10 API calls / minute... or upgrade to a Production key"* — it
+carries two of those words, so a limit that needed six seconds of waiting
+aborted the run after ten questions. It now matches on the mention of a rate per
+minute, and an unrecognised 429 waits rather than aborts: waiting on a spent
+allowance costs a minute of nothing, aborting on a rate limit costs the run.
+
+**A determinism failure that was not one.** The first completed run reported
+"Determinism: FAILED on 1 cells, 2 questions". Inspecting the spans:
+**0 of 104 questions changed the order of their results**, and 2 had scores
+differing by up to 1.5e-4. `repeatDisagreements` was comparing the serialized
+spans, scores included, so the fourth decimal of a vendor's score counted as a
+different ranking — and that noise fed the power calculation, where it would
+have raised the detectable difference on a signal that was not there. The check
+now compares the ordering, which is what every metric consumes, and `scoreDrift`
+reports score movement separately. The drift is intermittent: present in one run
+of the reranker, absent in the next.
+
+**A latency column measuring our own throttle.** Pacing to 10 calls a minute put
+the wait inside the timed call, and the cell reported p50 = 6,025 ms and
+p95 = 66,640 ms — which is 6 seconds of pacing and a 60-second back-off, not
+Cohere's speed. The client now counts waiting separately and the runner
+subtracts it, which is how the honest 717 ms above was obtained.
+
 ### The embedding axis, closed through a different gateway
 
 The design asks for the best configurations against two embedding models. That

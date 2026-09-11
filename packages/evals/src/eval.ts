@@ -50,7 +50,7 @@ import { embeddingRate, loadPrices } from "./prices.ts";
 import { HIT_COVERAGE } from "./hit.ts";
 import { lexicallyTrivial, type Retrieved } from "./metrics.ts";
 import {
-  chunkSha, repeatDisagreements, scoreQuestion, type Header, type Result,
+  chunkSha, repeatDisagreements, scoreDrift, scoreQuestion, type Header, type Result,
 } from "./run.ts";
 
 const HELP = `
@@ -63,6 +63,9 @@ usage: pnpm eval [--run-all | --chunking IDS --retrieval IDS --reranking IDS]
   --dry-run      print the matrix, the chunk counts and what embedding each
                  dense cell would need. Makes no network call and writes no
                  run files.
+  --rerank-rpm N pace billed rerank calls to N a minute. A Cohere trial key
+                 allows 10; without pacing the run spends its retries being
+                 refused.
   --spend-rerank allow billed Cohere Rerank calls. Without it a reranking
                  config of kind \`api\` runs only from its disk cache, and a cell
                  needing new calls is recorded as not run. Reranking is the one
@@ -104,6 +107,7 @@ const { values } = (() => {
         out: { type: "string" },
         force: { type: "boolean", default: false },
         "spend-rerank": { type: "boolean", default: false },
+        "rerank-rpm": { type: "string" },
       },
       allowPositionals: false,
     });
@@ -236,6 +240,10 @@ const localEmbedder = new CachedLocalEmbedder(join(CACHE_DIR, "embeddings"));
 // --dry-run can ask what a run would cost with no key present at all.
 const openrouterEmbedder = new OpenRouterEmbedder(join(CACHE_DIR, "embeddings"), undefined, embedModel);
 const reranker = new CohereReranker(join(CACHE_DIR, "rerank"));
+// A Cohere trial key allows 10 calls a minute. Pacing to it turns 300
+// refusals into 300 requests that are simply spread out — the wall clock is
+// the same either way, because the limit is the limit.
+if (values["rerank-rpm"]) reranker.pace(Number(values["rerank-rpm"]));
 const questionTexts = golden.questions.map((q) => q.text);
 // Counted once, with the tokenizer the chunkers use — invariant 2 — so the
 // query and index token counts in cost_units are on one scale.
@@ -760,6 +768,7 @@ for (const cell of cells) {
 }
 
 const disagreed: { cell: string; slugs: string[] }[] = [];
+const drifted: { cell: string; max: number; questions: number }[] = [];
 const skipped: { cell: string; reason: string }[] = [];
 let ran = 0;
 
@@ -795,8 +804,14 @@ for (const [chunkingId, group] of byChunking) {
     for (let repeat = 1; repeat <= repeats; repeat++) {
       for (const q of golden.questions) {
         const started = performance.now();
+        const waitedBefore = reranker.usage.waitedMs;
         const ranked = await retrieve(cell, built, q, repeat);
-        const latencyMs = performance.now() - started;
+        // Minus whatever the rerank client spent waiting — its own pacing and
+        // any rate-limit back-off. Those are properties of a trial key and of
+        // this client's configuration, not of how fast the service answers,
+        // and a p95 of 66 seconds measured through a 10-per-minute throttle
+        // would be a number about the throttle.
+        const latencyMs = performance.now() - started - (reranker.usage.waitedMs - waitedBefore);
         const line = {
           ...scoreQuestion(q, ranked, repeat, built.trivial.get(q.slug) ?? null),
           latency_ms: latencyMs,
@@ -809,6 +824,8 @@ for (const [chunkingId, group] of byChunking) {
 
     const slugs = repeatDisagreements(results);
     if (slugs.length > 0) disagreed.push({ cell: cellId(cell), slugs });
+    const drift = scoreDrift(results);
+    if (drift.max > 0) drifted.push({ cell: cellId(cell), ...drift });
     ran++;
     console.log(
       `  ran ${pad(cellId(cell), 42)} ${results.length} lines` +
@@ -846,6 +863,21 @@ if (skipped.length > 0) {
     `"not run", with the reason, rather than as a zero or a blank — a missing cell\n` +
     `that looks like a bad result is worse than an empty one.`,
   );
+}
+
+if (drifted.length > 0) {
+  // Reported next to determinism and not as part of it: the ordering is what
+  // every metric consumes, and a score that moves below the resolution of any
+  // decision made from it is a different fact about a different thing.
+  console.log(
+    `\nScore drift: ${drifted.length} cell${drifted.length === 1 ? "" : "s"} returned identical\n` +
+    `rankings with scores that were not identical. That is what a hosted model\n` +
+    `looks like when it is stable in the way that matters and not in the way that\n` +
+    `does not.`,
+  );
+  for (const d of drifted) {
+    console.log(`  ${pad(d.cell, 42)} up to ${d.max.toExponential(2)} on ${d.questions} questions`);
+  }
 }
 
 if (disagreed.length === 0) {

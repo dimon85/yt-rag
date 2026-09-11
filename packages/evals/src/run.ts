@@ -218,19 +218,58 @@ export function scoreQuestion(
  * not to average noise out of it. So a disagreement is a finding to report,
  * and this returns the questions that disagreed rather than a mean over them.
  *
- * Compared on the ranked span list, not on the metrics: two different rankings
- * can score the same recall@5, and the thing being checked is whether the
- * retriever returned the same thing twice.
+ * Compared on the ORDER of the spans and not on their scores. The first
+ * version stringified the whole span, scores included, and the difference
+ * showed up the first time a hosted reranker ran: Cohere returned the same
+ * ranking three times with scores that differed in the fourth decimal — 0
+ * questions reordered, 2 questions' scores drifting by up to 1.5e-4 — and the
+ * run printed "Determinism: FAILED". That is the wrong verdict. What every
+ * metric in this project consumes is the ordering; a score that wobbles below
+ * the resolution of any decision made from it is a different fact, and
+ * `scoreDrift` reports it separately rather than as a failure.
  */
 export function repeatDisagreements(results: Result[]): string[] {
   const bySlug = new Map<string, Set<string>>();
   for (const r of results) {
-    const shape = JSON.stringify(r.spans);
+    const shape = JSON.stringify(r.spans.map((s) => [s.video, s.start_s, s.end_s]));
     const seen = bySlug.get(r.slug) ?? new Set<string>();
     seen.add(shape);
     bySlug.set(r.slug, seen);
   }
   return [...bySlug].filter(([, shapes]) => shapes.size > 1).map(([slug]) => slug).sort();
+}
+
+/**
+ * The largest score difference between repeats, at the same question and rank.
+ *
+ * Zero for everything computed locally, which is most of this project. A
+ * hosted model is the interesting case: it is what tells "the vendor returns
+ * the same thing every time" apart from "the vendor returns the same ORDER
+ * every time", and only the second turned out to be true.
+ *
+ * Questions whose ordering differs are skipped: comparing scores rank by rank
+ * across two different rankings compares different spans, which is a larger
+ * problem than drift and is reported by repeatDisagreements instead.
+ */
+export function scoreDrift(results: Result[]): { max: number; questions: number } {
+  const bySlug = new Map<string, Result[]>();
+  for (const r of results) bySlug.set(r.slug, [...(bySlug.get(r.slug) ?? []), r]);
+
+  let max = 0;
+  let questions = 0;
+  for (const reps of bySlug.values()) {
+    if (reps.length < 2) continue;
+    const lengths = new Set(reps.map((r) => r.spans.length));
+    if (lengths.size > 1) continue;
+    let worst = 0;
+    for (let i = 0; i < reps[0]!.spans.length; i++) {
+      const scores = reps.map((r) => r.spans[i]!.score);
+      worst = Math.max(worst, Math.max(...scores) - Math.min(...scores));
+    }
+    if (worst > 0) questions++;
+    max = Math.max(max, worst);
+  }
+  return { max, questions };
 }
 
 // ─── aggregation ─────────────────────────────────────────────────────────────
