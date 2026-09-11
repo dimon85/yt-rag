@@ -33,6 +33,7 @@ import { encode } from "gpt-tokenizer";
 import { CachedLocalEmbedder } from "../../embed/src/local-cache.ts";
 import { geminiCacheCoverage, GEMINI_DIM, GeminiEmbedder } from "../../embed/src/gemini.ts";
 import { LOCAL_DIM } from "../../embed/src/local.ts";
+import { DEFAULT_MODEL as OPENROUTER_MODEL, OpenRouterEmbedder } from "../../embed/src/openrouter.ts";
 import { cosine, toStorage } from "../../embed/src/storage.ts";
 import { CACHE_DIR, loadCorpus, ROOT } from "../../ingest/src/corpus.ts";
 import type { Segment } from "../../ingest/src/text.ts";
@@ -45,6 +46,7 @@ import {
   type Cell, type Chunking,
 } from "./configs.ts";
 import { goldenSha, loadGolden, type Question } from "./golden.ts";
+import { embeddingRate, loadPrices } from "./prices.ts";
 import { HIT_COVERAGE } from "./hit.ts";
 import { lexicallyTrivial, type Retrieved } from "./metrics.ts";
 import {
@@ -74,7 +76,13 @@ usage: pnpm eval [--run-all | --chunking IDS --retrieval IDS --reranking IDS]
                  naming a model, so it is a run-level choice recorded in every
                  header. \`local\` is free and needs no key; \`gemini\` spends
                  quota per text and is skipped unless every vector it needs is
-                 already cached.
+                 already cached; \`openrouter\` bills per token and needs
+                 --spend-embed before it will spend anything.
+  --embed-model  the model id for --embedder openrouter (default ${OPENROUTER_MODEL}).
+                 It is the embedder recorded in the header, because the model
+                 and not the gateway is what a vector means.
+  --spend-embed  allow billed embedding calls. Without it a cell whose vectors
+                 are not all cached is recorded as "not run", with the count.
 `.trimStart();
 
 const argv = process.argv.slice(2);
@@ -89,6 +97,8 @@ const { values } = (() => {
         retrieval: { type: "string" },
         reranking: { type: "string" },
         embedder: { type: "string", default: "local" },
+        "embed-model": { type: "string" },
+        "spend-embed": { type: "boolean", default: false },
         "top-k": { type: "string" },
         repeats: { type: "string" },
         out: { type: "string" },
@@ -120,10 +130,15 @@ if (!values["run-all"] && !narrowed) {
 }
 
 const embedderName = values.embedder!;
-if (!["local", "gemini"].includes(embedderName)) {
-  console.error(`--embedder must be local or gemini\n\n${HELP}`);
+if (!["local", "gemini", "openrouter"].includes(embedderName)) {
+  console.error(`--embedder must be local, gemini or openrouter\n\n${HELP}`);
   process.exit(2);
 }
+const embedModel = values["embed-model"] ?? OPENROUTER_MODEL;
+// The model, not the gateway, is what a vector means: two OpenRouter models
+// are two different configurations, and the header, the row label and
+// prices.yaml all key on this.
+const embedderLabel = embedderName === "openrouter" ? embedModel : embedderName;
 
 const cfg = loadConfigs();
 const topK = values["top-k"] ? Number(values["top-k"]) : cfg.defaults.top_k;
@@ -217,6 +232,9 @@ function chunksFor(config: Chunking): IndexedChunk[] {
 // completely, and covers 45 of the 104 golden questions — so a `vector` cell
 // on fixed-128 needs 59 new API calls despite every chunk being on disk.
 const localEmbedder = new CachedLocalEmbedder(join(CACHE_DIR, "embeddings"));
+// Constructed unconditionally: its constructor does not demand a key, so
+// --dry-run can ask what a run would cost with no key present at all.
+const openrouterEmbedder = new OpenRouterEmbedder(join(CACHE_DIR, "embeddings"), undefined, embedModel);
 const reranker = new CohereReranker(join(CACHE_DIR, "rerank"));
 const questionTexts = golden.questions.map((q) => q.text);
 // Counted once, with the tokenizer the chunkers use — invariant 2 — so the
@@ -270,6 +288,27 @@ function preflight(cell: Cell): Verdict {
   if (!needsEmbeddings(cell.retrieval)) return { run: true };
 
   if (embedderName === "local") return { run: true };
+
+  if (embedderName === "openrouter") {
+    const chunks = chunksFor(cell.chunking);
+    const texts = [...chunks.map((c) => c.text), ...questionTexts];
+    const unique = new Set(texts).size;
+    const missing = unique - openrouterEmbedder.cachedCount(texts);
+    if (missing === 0) return { run: true };
+    // Billed per token rather than capped per day, so unlike Gemini this is a
+    // decision rather than a wall — and the decision is the operator's, made
+    // once with a flag, not implied by running the command.
+    if (!openrouterEmbedder.hasKey) {
+      return { run: false, reason: `not run: ${missing} vectors are not cached and OPENROUTER_API_KEY is not set` };
+    }
+    if (!values["spend-embed"]) {
+      return {
+        run: false,
+        reason: `not run: ${missing} of ${unique} vectors are not cached and --spend-embed was not passed`,
+      };
+    }
+    return { run: true };
+  }
 
   const chunks = chunksFor(cell.chunking);
   const forChunks = geminiCacheCoverage(join(CACHE_DIR, "embeddings"), chunks.map((c) => c.text));
@@ -385,6 +424,33 @@ if (values["dry-run"]) {
     );
   }
 
+  if (embedderName === "openrouter") {
+    // What spending would actually buy, before it is spent. Priced from
+    // prices.yaml at the same rate the report uses, so the estimate here and
+    // the figure printed afterwards cannot drift apart.
+    const rate = embeddingRate(loadPrices(join(ROOT, "prices.yaml")), embedModel);
+    let tokens = 0;
+    const seen = new Set<string>();
+    for (const cell of cells) {
+      if (seen.has(cell.chunking.id)) continue;
+      seen.add(cell.chunking.id);
+      for (const c of chunksFor(cell.chunking)) {
+        if (!openrouterEmbedder.cachedCount([c.text])) tokens += c.token_count;
+      }
+    }
+    tokens += questionTokens;
+    console.log(
+      `\nunder --embedder openrouter (${embedModel}): about ${(tokens / 1000).toFixed(0)}k tokens are\n` +
+      `not cached` +
+      (rate === null
+        ? `. prices.yaml carries no rate for this model, so the cost cannot be stated.`
+        : `, which at $${rate}/M is about $${(tokens / 1e6 * rate).toFixed(4)}. Billing is per\n` +
+          `token rather than a daily cap, so this is a decision rather than a wall — and\n` +
+          `--spend-embed is how the decision is made, once, rather than implied by running\n` +
+          `the command.`),
+    );
+  }
+
   console.log(`\nNo network call was made and no run file was written.`);
   process.exit(0);
 }
@@ -423,14 +489,11 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
     return { chunks, lexical, tokenSets, vectors: null, queryVectors: null, trivial, queryEmbedMs: null };
   }
 
-  const dim = embedderName === "local" ? LOCAL_DIM : GEMINI_DIM;
   const embed = async (texts: string[], label: string): Promise<number[][]> => {
-    if (embedderName === "local") {
-      return localEmbedder.embedAll(texts, {
-        onProgress: (done, total) =>
-          process.stdout.write(`\r  ${label} ${done}/${total}   `),
-      });
-    }
+    const onProgress = (done: number, total: number) =>
+      process.stdout.write(`\r  ${label} ${done}/${total}   `);
+    if (embedderName === "local") return localEmbedder.embedAll(texts, { onProgress });
+    if (embedderName === "openrouter") return openrouterEmbedder.embedAll(texts, { onProgress });
     // Reached only when preflight found every vector already cached, so this
     // makes no request. The client is constructed lazily for the same reason:
     // its constructor demands a key the cached path does not need.
@@ -438,8 +501,14 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
     return embedder.embedAll(texts);
   };
 
-  const vectors = (await embed(chunks.map((c) => c.text), `${config.id} chunks`))
-    .map((v) => toStorage(v, dim));
+  const raw = await embed(chunks.map((c) => c.text), `${config.id} chunks`);
+  // The width of a hosted model is whatever it returns, and asserting a
+  // constant would be a guess. Taken from the first vector; toStorage then
+  // rejects any later vector that disagrees, which is the check that matters.
+  const dim = embedderName === "local" ? LOCAL_DIM
+    : embedderName === "gemini" ? GEMINI_DIM
+    : raw[0]?.length ?? 0;
+  const vectors = raw.map((v) => toStorage(v, dim));
 
   // Timed, and divided by the queries that were actually computed rather than
   // by all of them: a run that read 104 vectors from disk in 3 ms would
@@ -447,6 +516,8 @@ async function build(config: Chunking, wantDense: boolean): Promise<Built> {
   // column, which is a measurement of the cache and not of the model.
   const cachedBefore = embedderName === "local"
     ? localEmbedder.cachedCount(questionTexts)
+    : embedderName === "openrouter"
+    ? openrouterEmbedder.cachedCount(questionTexts)
     : geminiCacheCoverage(join(CACHE_DIR, "embeddings"), questionTexts).cached;
   const computed = new Set(questionTexts).size - cachedBefore;
   const startedEmbedding = performance.now();
@@ -553,7 +624,25 @@ const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const outDir = values.out ?? join(ROOT, "runs", runId);
 mkdirSync(outDir, { recursive: true });
 
-const fileFor = (cell: Cell) => join(outDir, `${cellId(cell)}.jsonl`);
+/**
+ * One file per cell, named so that two embedders can share a directory.
+ *
+ * `cellId` is chunking × retrieval × reranking and deliberately says nothing
+ * about the embedder — it is not an axis in configs.yaml. But the embedder IS
+ * part of what a run measures, and without it in the filename a second run
+ * under a different model silently overwrites the first: same names, same
+ * directory, one table. That is precisely the comparison the design asks for
+ * ("the best configurations × 2 embedding models"), so it has to be possible
+ * to put both in one report — `rowLabel` already tells the rows apart, and
+ * `comparable` already refuses to mix runs from different code.
+ *
+ * A lexical cell embeds nothing and keeps the bare name, so its file is
+ * written once no matter which embedder the run names.
+ */
+const fileFor = (cell: Cell) =>
+  join(outDir, needsEmbeddings(cell.retrieval)
+    ? `${cellId(cell)}__${embedderLabel.replace(/\//g, "-")}.jsonl`
+    : `${cellId(cell)}.jsonl`);
 
 // Lines are appended as they arrive so a run that dies keeps what it did. The
 // cost of appending is that a SECOND run writing the same filename does not
@@ -632,7 +721,7 @@ function header(cell: Cell, chunkCount: number, built: Built | null): Header {
     chunking: { id: cell.chunking.id, strategy: cell.chunking.strategy, params: cell.chunking.params },
     retrieval: { id: cell.retrieval.id, kind: cell.retrieval.kind },
     reranking: { id: cell.reranking.id, kind: cell.reranking.kind },
-    embedder: needsEmbeddings(cell.retrieval) ? embedderName : null,
+    embedder: needsEmbeddings(cell.retrieval) ? embedderLabel : null,
     golden_sha: GOLDEN_SHA,
     git_sha: GIT_SHA,
     chunk_count: chunkCount,
@@ -732,6 +821,17 @@ for (const [chunkingId, group] of byChunking) {
 
 console.log(`\n${"─".repeat(72)}`);
 console.log(`${ran} cells ran, ${skipped.length} skipped. Files in ${outDir}`);
+
+if (openrouterEmbedder.usage.calls > 0 || openrouterEmbedder.usage.cached > 0) {
+  const u = openrouterEmbedder.usage;
+  console.log(
+    `openrouter (${embedModel}): ${u.texts} texts embedded in ${u.calls} requests, ` +
+    `${u.cached} from the disk cache, ${u.tokens} tokens, ` +
+    // The vendor's own figure from usage.cost, not a price table multiplied by
+    // a token count — so it is what was actually billed.
+    `$${u.usd.toFixed(6)} billed`,
+  );
+}
 
 if (localEmbedder.usage.embedded > 0 || localEmbedder.usage.cached > 0) {
   console.log(

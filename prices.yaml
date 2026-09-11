@@ -40,6 +40,18 @@ embedding:
       Fill this in with the paid-tier price, its source and its date if the
       matrix is ever re-run on a paid key, and `pnpm report` will price it.
 
+  # Keyed by the model id, not by the gateway: a vector means what the model
+  # says it means, and two OpenRouter models are two configurations.
+  baai/bge-m3:
+    usd_per_million_tokens: 0.01
+    as_of: 2026-09-11
+    source: >
+      Measured, not quoted. A 101-text request through OpenRouter returned
+      usage.cost = $0.00011101 for 11,101 prompt tokens, which is $0.01 per
+      million exactly. OpenRouter's catalogue lists the same figure, and the
+      runner records the vendor's own usage.cost on every run, so the two can
+      be checked against each other rather than taken on trust.
+
 rerank:
   # Keyed by the id in configs.yaml, not by the vendor: a second hosted
   # reranker would be a second row with its own tariff.
