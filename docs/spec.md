@@ -776,6 +776,60 @@ the **vendor** drifts between calls, and a cached repeat would answer that with
 the first repeat's answer. So `rerank` reads the cache and `rerankFresh` does
 not, and repeats past the first always spend.
 
+### The embedding axis, closed through a different gateway
+
+The design asks for the best configurations against two embedding models. That
+step was blocked, and never on code: Gemini's free tier spends its allowance per
+TEXT against a daily cap of roughly a thousand, and the corpus is 3,238 chunks
+at 128 tokens.
+
+OpenRouter bills the same work per token. The whole matrix — 3.2M tokens across
+seven chunking configurations — was embedded through `baai/bge-m3` for
+**$0.0355**, measured from the vendor's own `usage.cost` rather than inferred.
+
+`baai/bge-m3` wins. Against the local model on the same 28 dense
+configurations it is ahead in 26, and of the 28 paired comparisons the set can
+resolve 11 at p <= 0.05 — **all 11 favouring bge-m3, none favouring local**.
+The gains concentrate where the dense retriever works alone and the chunks are
+short: `fixed-128__vector__none` moves 29.0% to 48.5%, `window-60__vector__none`
+35.4% to 51.4%. Hybrid configurations over long chunks are indistinguishable,
+which is what a fused lexical half doing most of the work looks like.
+
+Two things follow that the local model had hidden.
+
+**"Long chunks wash out a dense retriever" was a property of that model, not of
+dense retrieval.** The local model peaked in the middle of the size range and
+collapsed at 128 tokens; bge-m3 is at its best there. Any conclusion about
+chunk size and embeddings drawn from a 384-dimension MiniLM would have been a
+conclusion about MiniLM.
+
+**bge-m3 abstains perfectly on this corpus.** Every `vector` configuration
+under it scores a false-positive rate of 0.0% at its own median threshold — 32
+unanswerable questions, none answered. The local model scored 0–3.1%. Recall
+went up and the abstention did not pay for it, which is not the usual shape of
+that trade-off.
+
+Three practical findings came out of running it:
+
+- **The token estimate is 10% low.** The dry run priced 3,216k tokens from
+  gpt-tokenizer; the vendor billed 3,552k. Both counts are honest and they
+  count different things — the caveat in `costUnits` now has a number on it.
+- **A hosted embedder dominates query latency.** One query embedding is a
+  33.8 ms round trip, against 0.3–10.2 ms for the retrieval it feeds. The
+  conclusion that latency does not discriminate holds *among retrieval
+  configurations*; the embedder choice moves it by an order of magnitude.
+- **The vendor is not deterministic.** The same text embedded twice in one
+  request differs — cosine 0.999998877, largest element difference 1.6e-4, no
+  two of 1,024 values equal. Too small to move a ranking, but it means the
+  three repeats verify that the disk cache is stable rather than that the
+  vendor is.
+
+One structural fix made the comparison possible at all. Cell files were named
+`chunking__retrieval__reranking`, with no embedder, so a second run under a
+different model overwrote the first and the two could never appear in one
+table. Dense cells now carry the embedder in the filename; lexical cells, which
+embed nothing, keep the bare name and are shared.
+
 ### Determinism
 
 All three repeats of all 42 cells returned identical rankings. That is the
