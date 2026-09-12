@@ -289,6 +289,53 @@ no chunker. A test walks its import graph to keep it that way — not for tidine
 but so that no figure in the table can have come from retrieving again instead of
 from reading what a run recorded.
 
+## Running it
+
+```
+pnpm serve:prepare      # cache/ → serve-index.json, one configuration, 4.6 MB
+pnpm serve              # http://localhost:8080
+docker compose up --build
+```
+
+```
+GET /search?q=does+claude+code+support+subagents&k=5
+```
+
+returns spans — an excerpt, a timestamp, and a link that starts the video
+there — and never generated prose. Retrieval quality is what this project
+measures, and an LLM writing an answer on top would hide exactly that. Every
+response carries the configuration and the commit that produced it, so a quoted
+span is traceable to a row in the table above.
+
+The container holds one 4.6 MB index and no cache directory, no database and no
+API keys: `fixed-512-ov128`, hybrid retrieval, local embeddings — the best
+configuration that needs nobody's API. The embedding model is baked in at build
+time, so a cold start does not make its first user wait for a 90 MB download.
+
+### The abstention threshold has one setting, not a dial
+
+The server declines to answer below the median top-1 score of the answerable
+golden questions — the same threshold the false-positive column is measured at,
+so production behaves as the table describes. Swept against the run, there is
+nothing in between:
+
+| threshold | answers, of 72 answerable | answers, of 32 unanswerable |
+|---|---|---|
+| 0.0300 | 59 (82%) | 18 (56%) |
+| **0.03202** | **34 (47%)** | **3 (9%)** |
+| 0.0330 | 0 | 0 |
+
+RRF scores are sums of `1/(60+rank)`, so they take a handful of values: 24 of
+the 104 questions score exactly 0.01639 — 1/61, a chunk only one retriever
+ranked first — and the rest sit between 0.0288 and 0.0328. The cross-encoder
+returns 103 distinct scores between 0.0197 and 0.8647.
+
+So fusion gives a ranking and not a calibrated score, and a served system
+cannot trade precision against recall on it. That is a second argument for the
+reranker, independent of recall: 717 ms is also what a tunable abstention
+costs. It is not visible in any table of recall@k, and it surfaced only because
+something had to be deployed.
+
 ## Reproducing
 
 ```
@@ -345,9 +392,12 @@ quietly empty run.
 
 ## Status
 
-The ablation has run, under two embedding models: 105 cells in one run
-directory, results above. What remains is the reranker axis, which needs a paid
-key, the seven contradiction questions the design asked for, and deployment.
+The three weeks are done. The ablation ran under two embedding models, the
+reranker axis ran on the winner, and the retrieval it measured is served behind
+`/search` in a container that needs no keys. What remains is the seven
+contradiction questions the design asked for — the corpus turned out to hold
+less disagreement than it assumed — and the 21 reranker cells the trial
+allowance cannot cover.
 
 - [docs/spec.md](docs/spec.md) — schema, ablation configurations, metrics, and
   what the runner actually measured

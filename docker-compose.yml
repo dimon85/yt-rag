@@ -1,0 +1,14 @@
+# docker compose up --build
+#
+# Requires serve-index.json in the repository root: `pnpm serve:prepare` writes
+# it from cache/. Everything else the image needs is in git.
+services:
+  yt-rag:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # The abstention threshold travels in the index, not here — it is a
+      # measured property of the configuration rather than a deployment knob.
+      PORT: 8080
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+{
+  "name": "@yt-rag/serve",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@yt-rag/chunking": "workspace:*",
+    "@yt-rag/embed": "workspace:*",
+    "@yt-rag/ingest": "workspace:*",
+    "@yt-rag/retrieve": "workspace:*",
+    "zod": "^3.24.0"
+  }
+}

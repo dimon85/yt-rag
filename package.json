@@ -19,7 +19,9 @@
     "eval": "node --env-file-if-exists=.env --experimental-strip-types packages/evals/src/eval.ts",
     "report": "node --experimental-strip-types packages/report/src/report.ts",
     "review": "node --env-file-if-exists=.env --experimental-strip-types packages/evals/src/review.ts",
-    "power": "node --experimental-strip-types packages/evals/src/power-cli.ts"
+    "power": "node --experimental-strip-types packages/evals/src/power-cli.ts",
+    "serve:prepare": "node --experimental-strip-types packages/serve/src/prepare.ts",
+    "serve": "node --experimental-strip-types packages/serve/src/server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -776,6 +776,54 @@ the **vendor** drifts between calls, and a cached repeat would answer that with
 the first repeat's answer. So `rerank` reads the cache and `rerankFresh` does
 not, and repeats past the first always spend.
 
+### Serving it, and the thing that only shows up when you do
+
+`pnpm serve:prepare` reduces `cache/` — 300MB of vectors across seven chunking
+configurations — to one 4.6MB file holding the configuration the README
+describes: its chunks, its vectors, the video metadata a citation needs, and
+the abstention threshold. `pnpm serve` answers on it. The container carries
+that file and no cache directory, because deriving everything from `cache/` on
+each invocation is right for a harness and impossible for an image.
+
+Vectors are stored float32 rather than as JSON numbers — 4.6MB against 8MB.
+The ablation keeps full precision deliberately, but that argument is about
+comparing a cell against itself across repeats, and this file is never compared
+against a run. Checked rather than assumed: the top-10 is **identical on all
+104 golden questions** between the float32 index and the float64 original.
+
+The response is spans — excerpt, timestamp, link — and never prose. The
+excerpt cap is enforced in the retrieval function rather than left to a caller,
+because the legal note above is a property of the endpoint and not of its
+clients.
+
+**And then the abstention threshold turned out to have no operating curve.**
+
+The server declines below the median top-1 score of the answerable golden
+questions, which is the threshold the report measures false positives at, so
+production behaves the way the table describes. Swept against the run:
+
+| threshold | answers, of 72 answerable | answers, of 32 unanswerable |
+|---|---|---|
+| 0.0300 | 59 (82%) | 18 (56%) |
+| **0.03202** | **34 (47%)** | **3 (9%)** |
+| 0.0330 | 0 | 0 |
+
+There is nothing between 82% and 47%, and nothing above 0.0330 at all. The
+reason is in the fusion: RRF scores are sums of `1/(60+rank)`, so they take a
+handful of values. Across 104 questions the top-1 score has **24 questions at
+exactly 0.01639** — 1/61, the signature of a chunk that only one of the two
+retrievers ranked first — and everything else packed between 0.0288 and 0.0328,
+a range of 0.004.
+
+The cross-encoder, by contrast, returns 103 distinct top-1 scores between
+0.0197 and 0.8647.
+
+So RRF gives a ranking and not a calibrated score, and a served system cannot
+trade precision against recall on it — the choice is one operating point or
+none. That is a second argument for the reranker, independent of the recall it
+buys: 717 ms is also what a tunable abstention costs. It is not visible in any
+table of recall@k, and it only appeared because something had to be deployed.
+
 ### The reranker axis, on a trial key
 
 Cohere offers a free trial key: 1,000 API calls a month, 10 a minute. One cell
