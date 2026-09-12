@@ -58,11 +58,12 @@ rerank:
   cohere-rerank:
     usd_per_1000_searches: null
     reason: >
-      Never billed. COHERE_API_KEY was not set for any run in this repository,
-      so all 21 `cohere-rerank` cells were recorded as "not run" rather than
-      measured. The client exists and counts its calls, so the moment a key
-      pays for a run the units are there to price — but pricing them now would
-      put a cost on a row whose recall column is empty.
+      Run, but never billed. The reranker axis ran on a Cohere TRIAL key, which
+      is free and capped at 1,000 API calls a month at 10 a minute — so what it
+      spends is quota, not dollars, and one cell of 104 questions times three
+      repeats is 312 of those calls. A production tariff belongs here the day a
+      production key is used; quoting one now would put a dollar figure on a
+      run that cost none.
       One "search" is one query against up to 100 documents; a pool larger than
       that counts as more than one, which is why the runner records documents
       as well as searches.

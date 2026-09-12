@@ -4,7 +4,7 @@ import type { Retrieved } from "../src/metrics.ts";
 import {
   chunkSha, costPer1000Queries, discordance, falsePositives, foundWithin, Header,
   indexingCost, Line, meanOf, medianThreshold, percentile, repeatDisagreements,
-  Result, scoreQuestion, tally, type CostUnits,
+  Result, scoreDrift, scoreQuestion, tally, type CostUnits,
 } from "../src/run.ts";
 
 const span = (start_s: number, end_s: number, score = 1, video = "aaaaaaaaaaa"): Retrieved =>
@@ -96,16 +96,52 @@ describe("repeatDisagreements", () => {
     expect(repeatDisagreements([of(1, a), of(2, b)])).toEqual(["q"]);
   });
 
-  test("a changed score alone is a disagreement", () => {
-    expect(repeatDisagreements([of(1, [span(0, 20, 9)]), of(2, [span(0, 20, 8)])])).toEqual(["q"]);
+  test("a changed score alone is NOT a disagreement", () => {
+    // Measured against Cohere: three identical rankings whose scores differed
+    // in the fourth decimal. The ordering is what every metric consumes, so
+    // calling that a determinism failure reports the wrong thing — scoreDrift
+    // reports it instead.
+    expect(repeatDisagreements([of(1, [span(0, 20, 9)]), of(2, [span(0, 20, 8)])])).toEqual([]);
+  });
+
+  test("a span that moves is a disagreement even at the same score", () => {
+    expect(repeatDisagreements([of(1, [span(0, 20, 9)]), of(2, [span(30, 50, 9)])])).toEqual(["q"]);
   });
 
   test("questions are reported by slug, sorted", () => {
     const one = scoreQuestion(question({ slug: "zebra" }), [span(0, 1, 1)], 1, false);
-    const two = scoreQuestion(question({ slug: "zebra" }), [span(0, 1, 2)], 2, false);
+    const two = scoreQuestion(question({ slug: "zebra" }), [span(5, 6, 1)], 2, false);
     const three = scoreQuestion(question({ slug: "apple" }), [span(0, 1, 1)], 1, false);
-    const four = scoreQuestion(question({ slug: "apple" }), [span(0, 1, 2)], 2, false);
+    const four = scoreQuestion(question({ slug: "apple" }), [span(5, 6, 1)], 2, false);
     expect(repeatDisagreements([one, two, three, four])).toEqual(["apple", "zebra"]);
+  });
+});
+
+describe("scoreDrift", () => {
+  const of = (repeat: number, ranked: Retrieved[]) => scoreQuestion(question(), ranked, repeat, false);
+
+  test("zero when every repeat returns the same scores", () => {
+    const ranked = [span(0, 20, 9), span(40, 60, 8)];
+    expect(scoreDrift([of(1, ranked), of(2, ranked)])).toEqual({ max: 0, questions: 0 });
+  });
+
+  test("the largest gap at any rank, and how many questions moved", () => {
+    const a = [span(0, 20, 0.5), span(40, 60, 0.3)];
+    const b = [span(0, 20, 0.5001), span(40, 60, 0.31)];
+    const d = scoreDrift([of(1, a), of(2, b)]);
+    expect(d.questions).toBe(1);
+    expect(d.max).toBeCloseTo(0.01, 10);
+  });
+
+  test("a single repeat cannot drift", () => {
+    expect(scoreDrift([of(1, [span(0, 20, 9)])])).toEqual({ max: 0, questions: 0 });
+  });
+
+  test("rankings of different lengths are skipped rather than compared by rank", () => {
+    // Comparing rank by rank across different rankings compares different
+    // spans; that is repeatDisagreements' problem, and a larger one.
+    const d = scoreDrift([of(1, [span(0, 20, 9)]), of(2, [span(0, 20, 9), span(40, 60, 8)])]);
+    expect(d).toEqual({ max: 0, questions: 0 });
   });
 });
 

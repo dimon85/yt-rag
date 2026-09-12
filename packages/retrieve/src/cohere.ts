@@ -53,9 +53,27 @@ export type RerankUsage = { calls: number; documents: number; cached: number; wa
 export function classifyError(status: number, body: string): "minute" | "exhausted" | "auth" | "other" {
   if (status === 401 || status === 403) return "auth";
   if (status === 429) {
-    // Cohere returns 429 for both the per-minute limit and a finished trial
-    // allowance, and only the body distinguishes them.
-    return /trial|monthly|billing|upgrade|quota/i.test(body) ? "exhausted" : "minute";
+    // Cohere returns 429 for both the per-minute limit and a finished
+    // allowance, and only the body distinguishes them — but not by the words
+    // the first version of this looked for. A trial key's RATE limit reads:
+    //
+    //   "You are using a Trial key, which is limited to 10 API calls / minute.
+    //    You can continue to use the Trial key for free or upgrade to a
+    //    Production key..."
+    //
+    // which contains "Trial" and "upgrade", so matching those classified a
+    // per-minute limit as a spent allowance and aborted a run that only had to
+    // wait six seconds. Measured against the live API, not imagined.
+    //
+    // The rate limit is the one that names a per-minute rate, so that is what
+    // is matched, and everything else at 429 is treated as exhausted. The
+    // asymmetry is deliberate: waiting on a spent allowance costs a minute of
+    // nothing, while aborting on a rate limit throws away the whole run.
+    return /per minute|\/\s*min|calls\s*\/\s*minute|requests? per min/i.test(body)
+      ? "minute"
+      : /trial|monthly|billing|upgrade|quota|allowance/i.test(body)
+      ? "exhausted"
+      : "minute";
   }
   return "other";
 }
@@ -118,6 +136,9 @@ export class CohereReranker {
   private cachePath: string;
   private cache: Record<string, Cached>;
   private apiKey: string | undefined;
+  /** Minimum gap between billed requests, and when the last one went out. */
+  private minIntervalMs = 0;
+  private lastRequestAt = 0;
   // Plain fields, not constructor parameter properties: the project runs
   // TypeScript directly through type stripping, which rejects those outright.
   // Vitest transpiles and would not have caught it.
@@ -142,6 +163,18 @@ export class CohereReranker {
 
   get hasKey(): boolean {
     return Boolean(this.apiKey);
+  }
+
+  /**
+   * Paces billed requests to at most `rpm` a minute.
+   *
+   * Retrying on a 429 is the safety net, not the plan: a trial key allows 10
+   * calls a minute, and a client that discovers this by being refused spends
+   * its attempts learning the same fact 300 times. Pacing costs the same wall
+   * clock — the limit is the limit — and arrives without the refusals.
+   */
+  pace(rpm: number): void {
+    this.minIntervalMs = rpm > 0 ? Math.ceil(60_000 / rpm) : 0;
   }
 
   /** Whether this exact query-and-candidates request is already on disk. */
@@ -183,6 +216,17 @@ export class CohereReranker {
     if (docs.length === 0) return [];
 
     const texts = docs.map((d) => d.text);
+    if (this.minIntervalMs > 0) {
+      const wait = this.lastRequestAt + this.minIntervalMs - Date.now();
+      if (wait > 0) {
+        // Counted as waiting, not as service time. eval.ts subtracts it from
+        // the latency it records: a p95 that reports our own throttle would
+        // describe this client's configuration rather than the vendor's speed.
+        this.usage.waitedMs += wait;
+        await new Promise((r) => setTimeout(r, wait));
+      }
+      this.lastRequestAt = Date.now();
+    }
     const parsed = await this.withRetry(async () => {
       const res = await fetch(COHERE_URL, {
         method: "POST",

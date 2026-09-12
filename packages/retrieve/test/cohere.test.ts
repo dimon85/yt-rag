@@ -41,6 +41,44 @@ describe("classifyError", () => {
   });
 });
 
+describe("classifyError on the messages the API actually sends", () => {
+  // Both bodies are verbatim from a live trial key. The first one cost a run:
+  // it carries "Trial" and "upgrade", which an earlier version of this
+  // function read as a spent allowance, so a limit that needed six seconds of
+  // waiting aborted after ten questions.
+  const RATE = JSON.stringify({
+    id: "d4abd51d",
+    message:
+      "You are using a Trial key, which is limited to 10 API calls / minute. " +
+      "You can continue to use the Trial key for free or upgrade to a Production " +
+      "key with higher rate limits at 'https://dashboard.cohere.com/api-keys'.",
+  });
+
+  test("a trial RATE limit is waited out, not treated as exhaustion", () => {
+    expect(classifyError(429, RATE)).toBe("minute");
+  });
+
+  test("the words trial and upgrade alone do not mean exhausted", () => {
+    // The trap: both appear in the rate-limit message.
+    expect(RATE).toMatch(/Trial/);
+    expect(RATE).toMatch(/upgrade/);
+    expect(classifyError(429, RATE)).not.toBe("exhausted");
+  });
+
+  test("a spent monthly allowance still classifies as exhausted", () => {
+    const spent = JSON.stringify({
+      message: "You have exceeded your monthly trial allowance of 1000 API calls.",
+    });
+    expect(classifyError(429, spent)).toBe("exhausted");
+  });
+
+  test("an unrecognised 429 is waited out rather than aborted on", () => {
+    // Asymmetric on purpose: waiting on a spent allowance costs a minute of
+    // nothing, aborting on a rate limit throws away the run.
+    expect(classifyError(429, "{}")).toBe("minute");
+  });
+});
+
 describe("retryAfterMs", () => {
   test("the header is used when it says something usable", () => {
     expect(retryAfterMs("30")).toBe(30_500);
