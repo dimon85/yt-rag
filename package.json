@@ -5,6 +5,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@10.2.0",
   "scripts": {
     "discover": "node --experimental-strip-types packages/ingest/src/discover.ts",
     "test": "vitest run",
