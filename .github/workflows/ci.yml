@@ -1,0 +1,55 @@
+# Typecheck and tests, on every push and every pull request.
+#
+# The project's own conclusion is that bugs in metric code outnumber the
+# differences between configurations, and 523 tests exist because of it. A
+# suite that only runs when somebody remembers is a suite that stops being
+# true between the remembering.
+#
+# What this does NOT do is run the ablation. `pnpm eval` needs cache/ — 432MB
+# of transcripts and vectors that are deliberately not in git — so CI would
+# have to re-fetch from YouTube and re-embed to produce numbers that are
+# already recorded in runs/. The tests here cover the code that computes the
+# metrics; the numbers themselves are reproduced locally against the cache, and
+# every run file records the git_sha that produced it.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from package.json's packageManager field, so CI and a
+      # laptop cannot quietly run different pnpm.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The runner strips types at run time (--experimental-strip-types),
+          # which 22 supports and older releases do not. package.json says
+          # >=22; this pins the one the work was done on.
+          node-version: 24
+          cache: pnpm
+
+      - name: install
+        # Frozen: a lockfile that drifts in CI means CI tested a dependency
+        # tree nobody has.
+        run: pnpm install --frozen-lockfile
+
+      - name: typecheck
+        run: pnpm typecheck
+
+      - name: test
+        run: pnpm test
